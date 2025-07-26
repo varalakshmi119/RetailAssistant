@@ -32,6 +32,37 @@ data class InvoiceState(
     
     // Internal method to get compressed image
     fun getCompressedImage(): ByteArray? = compressedImage
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as InvoiceState
+
+        if (isAiExtracting != other.isAiExtracting) return false
+        if (isSaving != other.isSaving) return false
+        if (customerName != other.customerName) return false
+        if (phoneNumber != other.phoneNumber) return false
+        if (issueDate != other.issueDate) return false
+        if (amount != other.amount) return false
+        if (imageUri != other.imageUri) return false
+        if (!compressedImage.contentEquals(other.compressedImage)) return false
+        if (hasImageData != other.hasImageData) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = isAiExtracting.hashCode()
+        result = 31 * result + isSaving.hashCode()
+        result = 31 * result + customerName.hashCode()
+        result = 31 * result + phoneNumber.hashCode()
+        result = 31 * result + issueDate.hashCode()
+        result = 31 * result + amount.hashCode()
+        result = 31 * result + (imageUri?.hashCode() ?: 0)
+        result = 31 * result + (compressedImage?.contentHashCode() ?: 0)
+        result = 31 * result + hasImageData.hashCode()
+        return result
+    }
 }
 
 sealed class InvoiceAction : UiAction {
