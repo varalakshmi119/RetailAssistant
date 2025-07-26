@@ -1,5 +1,4 @@
 package com.example.retailassistant.ui.navigation
-
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
@@ -9,12 +8,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.retailassistant.ui.screen.auth.AuthScreen
+import com.example.retailassistant.ui.screen.dashboard.CustomerDetailScreen
 import com.example.retailassistant.ui.screen.dashboard.MainScreen
 import com.example.retailassistant.ui.screen.invoice.InvoiceCreationScreen
 import com.example.retailassistant.ui.screen.invoice.InvoiceDetailScreen
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
-
 sealed class Screen(val route: String) {
     data object Auth : Screen("auth")
     data object Main : Screen("main")
@@ -22,14 +21,15 @@ sealed class Screen(val route: String) {
     data object InvoiceDetail : Screen("invoice_detail/{invoiceId}") {
         fun createRoute(invoiceId: String) = "invoice_detail/$invoiceId"
     }
+    data object CustomerDetail : Screen("customer_detail/{customerId}") {
+        fun createRoute(customerId: String) = "customer_detail/$customerId"
+    }
 }
-
 @Composable
 fun AppNavigation(supabase: SupabaseClient) {
     val navController = rememberNavController()
     val isLoggedIn = supabase.auth.currentUserOrNull() != null
     val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Auth.route
-
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -55,6 +55,9 @@ fun AppNavigation(supabase: SupabaseClient) {
                 onNavigateToInvoiceDetail = { invoiceId ->
                     navController.navigate(Screen.InvoiceDetail.createRoute(invoiceId))
                 },
+                onNavigateToCustomerDetail = { customerId ->
+                    navController.navigate(Screen.CustomerDetail.createRoute(customerId))
+                },
                 onLogout = {
                     navController.navigate(Screen.Auth.route) {
                         popUpTo(Screen.Main.route) { inclusive = true }
@@ -79,6 +82,20 @@ fun AppNavigation(supabase: SupabaseClient) {
                 invoiceId = invoiceId,
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+        composable(
+            route = Screen.CustomerDetail.route,
+            arguments = listOf(navArgument("customerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val customerId = backStackEntry.arguments?.getString("customerId")
+            requireNotNull(customerId) { "Customer ID is required" }
+            CustomerDetailScreen(
+                customerId = customerId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToInvoiceDetail = { invoiceId ->
+                    navController.navigate(Screen.InvoiceDetail.createRoute(invoiceId))
                 }
             )
         }

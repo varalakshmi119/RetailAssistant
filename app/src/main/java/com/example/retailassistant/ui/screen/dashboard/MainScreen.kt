@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -43,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,6 +55,7 @@ import com.example.retailassistant.ui.components.InfoCard
 import com.example.retailassistant.ui.components.InvoiceCard
 import com.example.retailassistant.ui.components.formatCurrency
 import com.example.retailassistant.ui.viewmodel.CustomerAction
+import com.example.retailassistant.ui.viewmodel.CustomerDetailViewModel
 import com.example.retailassistant.ui.viewmodel.CustomerEvent
 import com.example.retailassistant.ui.viewmodel.CustomerState
 import com.example.retailassistant.ui.viewmodel.CustomerViewModel
@@ -60,12 +64,13 @@ import com.example.retailassistant.ui.viewmodel.DashboardEvent
 import com.example.retailassistant.ui.viewmodel.DashboardState
 import com.example.retailassistant.ui.viewmodel.DashboardViewModel
 import org.koin.androidx.compose.koinViewModel
-
+import org.koin.core.parameter.parametersOf
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     onNavigateToAddInvoice: () -> Unit,
     onNavigateToInvoiceDetail: (String) -> Unit,
+    onNavigateToCustomerDetail: (String) -> Unit,
     onLogout: () -> Unit,
     dashboardViewModel: DashboardViewModel = koinViewModel(),
     customerViewModel: CustomerViewModel = koinViewModel()
@@ -159,7 +164,8 @@ fun MainScreen(
                 )
                 1 -> CustomerContent(
                     state = customerState,
-                    onRefresh = { customerViewModel.sendAction(CustomerAction.RefreshData) }
+                    onRefresh = { customerViewModel.sendAction(CustomerAction.RefreshData) },
+                    onCustomerClick = onNavigateToCustomerDetail
                 )
             }
         }
@@ -238,7 +244,8 @@ private fun DashboardContent(
 @Composable
 private fun CustomerContent(
     state: CustomerState,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onCustomerClick: (String) -> Unit
 ) {
     PullToRefreshBox(
         isRefreshing = state.isRefreshing,
@@ -266,8 +273,65 @@ private fun CustomerContent(
                 items(state.customers, key = { it.id }) { customer ->
                     CustomerCard(
                         customer = customer,
-                        onClick = { /* TODO: Navigate to customer detail screen */ }
+                        onClick = { onCustomerClick(customer.id) }
                     )
+                }
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomerDetailScreen(
+    customerId: String,
+    onNavigateBack: () -> Unit,
+    onNavigateToInvoiceDetail: (String) -> Unit,
+    viewModel: CustomerDetailViewModel = koinViewModel { parametersOf(customerId) }
+) {
+    val state by viewModel.uiState.collectAsState()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(state.customer?.name ?: "Customer Details") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        if (state.isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text("Invoices for ${state.customer?.name}", style = MaterialTheme.typography.titleLarge)
+                }
+                if (state.invoices.isEmpty()) {
+                    item {
+                        EmptyState(
+                            title = "No Invoices",
+                            subtitle = "This customer does not have any invoices yet.",
+                            icon = Icons.AutoMirrored.Filled.ReceiptLong
+                        )
+                    }
+                } else {
+                    items(state.invoices, key = { it.id }) { invoice ->
+                        InvoiceCard(
+                            invoice = invoice,
+                            customer = state.customer,
+                            onClick = { onNavigateToInvoiceDetail(invoice.id) }
+                        )
+                    }
                 }
             }
         }
