@@ -58,9 +58,20 @@ class InvoiceRepository(
 
             // 3. Insert into Supabase tables
             supabase.from("customers").upsert(customer)
-            val newInvoice = supabase.from("invoices")
-                .insert(invoiceInsertDto)
-                .decodeSingle<Invoice>()
+            supabase.from("invoices").insert(invoiceInsertDto)
+            
+            // Create the invoice object for local storage
+            val newInvoice = Invoice(
+                id = invoiceInsertDto.id,
+                customerId = invoiceInsertDto.customerId,
+                totalAmount = invoiceInsertDto.totalAmount,
+                amountPaid = invoiceInsertDto.amountPaid,
+                issueDate = invoiceInsertDto.issueDate,
+                status = invoiceInsertDto.status,
+                originalScanUrl = invoiceInsertDto.originalScanUrl,
+                createdAt = invoiceInsertDto.createdAt,
+                userId = invoiceInsertDto.userId
+            )
 
             // 4. On success, update local Room cache
             customerDao.upsertCustomers(listOf(customer))
@@ -75,25 +86,37 @@ class InvoiceRepository(
     // --- Sync Logic ---
     suspend fun syncUserData(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val networkInvoices = supabase.from("invoices")
-                .select {
-                    filter {
-                        eq("userId", currentUserId)
-                    }
-                }.decodeList<Invoice>()
+            val networkInvoices = try {
+                supabase.from("invoices")
+                    .select {
+                        filter {
+                            eq("userId", currentUserId)
+                        }
+                    }.decodeList<Invoice>()
+            } catch (e: Exception) {
+                emptyList<Invoice>()
+            }
 
-            val networkCustomers = supabase.from("customers")
-                .select {
-                    filter {
-                        eq("userId", currentUserId)
-                    }
-                }.decodeList<Customer>()
+            val networkCustomers = try {
+                supabase.from("customers")
+                    .select {
+                        filter {
+                            eq("userId", currentUserId)
+                        }
+                    }.decodeList<Customer>()
+            } catch (e: Exception) {
+                emptyList<Customer>()
+            }
 
             invoiceDao.clearUserInvoices(currentUserId)
             customerDao.clearUserCustomers(currentUserId)
 
-            customerDao.upsertCustomers(networkCustomers)
-            invoiceDao.upsertInvoices(networkInvoices)
+            if (networkCustomers.isNotEmpty()) {
+                customerDao.upsertCustomers(networkCustomers)
+            }
+            if (networkInvoices.isNotEmpty()) {
+                invoiceDao.upsertInvoices(networkInvoices)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {

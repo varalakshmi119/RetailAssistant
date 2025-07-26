@@ -38,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,7 @@ import com.example.retailassistant.ui.viewmodel.DashboardAction
 import com.example.retailassistant.ui.viewmodel.DashboardEvent
 import com.example.retailassistant.ui.viewmodel.DashboardState
 import com.example.retailassistant.ui.viewmodel.DashboardViewModel
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -66,6 +68,7 @@ fun MainScreen(
     val dashboardState by dashboardViewModel.uiState.collectAsState()
     val customerState by customerViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     // Handle dashboard events
     LaunchedEffect(dashboardViewModel) {
@@ -155,7 +158,13 @@ fun MainScreen(
             )
             1 -> CustomerContent(
                 state = customerState,
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                onCustomerClick = { message ->
+                    // Show snackbar when customer is clicked
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(message)
+                    }
+                }
             )
         }
     }
@@ -206,7 +215,7 @@ private fun DashboardContent(
             ) {
                 CircularProgressIndicator()
             }
-        } else if (state.invoices.isEmpty()) {
+        } else if (state.invoicesWithCustomers.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -236,13 +245,14 @@ private fun DashboardContent(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(state.invoices) { invoice ->
-                    // For now, we'll show invoice without customer details
-                    // In a full implementation, you'd join with customer data
+                items(state.invoicesWithCustomers) { invoiceWithCustomer ->
                     InvoiceCard(
-                        invoice = invoice,
-                        customer = null, // TODO: Join with customer data
-                        onClick = { /* TODO: Navigate to invoice detail */ }
+                        invoice = invoiceWithCustomer.invoice,
+                        customer = invoiceWithCustomer.customer,
+                        onClick = { 
+                            // TODO: Navigate to invoice detail
+                            // For now, just show a placeholder action
+                        }
                     )
                 }
             }
@@ -253,7 +263,8 @@ private fun DashboardContent(
 @Composable
 private fun CustomerContent(
     state: CustomerState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCustomerClick: (String) -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -308,7 +319,9 @@ private fun CustomerContent(
                 items(state.customers) { customer ->
                     CustomerCard(
                         customer = customer,
-                        onClick = { /* TODO: Navigate to customer detail */ }
+                        onClick = { 
+                            onCustomerClick("Clicked on ${customer.name}")
+                        }
                     )
                 }
             }

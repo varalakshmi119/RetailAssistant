@@ -101,7 +101,7 @@ object ImageUtils {
 }
 // --- Gemini API Client ---
 object GeminiApiClient {
-    private const val MODEL_ID = "gemini-2.0-flash-exp"
+    private const val MODEL_ID = "gemini-2.5-flash"
     private const val API_KEY = "AIzaSyClNieoNdf3oTfWz1ZmI6fTsrjkp9ak7pg"
     private const val API_URL = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_ID:generateContent?key=$API_KEY"
 
@@ -126,26 +126,54 @@ object GeminiApiClient {
                 setBody(request)
             }.body()
 
+            // Create a more lenient JSON parser for Gemini responses
+            val lenientJson = Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                coerceInputValues = true
+            }
+
             val jsonText = if (responseString.contains("\"candidates\"")) {
-                val response = Json.decodeFromString<GeminiResponse>(responseString)
+                val response = lenientJson.decodeFromString<GeminiResponse>(responseString)
                 response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
                     ?: throw Exception("AI response was empty.")
             } else {
-                val errorResponse = Json.decodeFromString<GeminiErrorResponse>(responseString)
-                throw Exception(errorResponse.error.message)
+                // Try to parse as error response, but if it fails, return the raw response
+                try {
+                    val errorResponse = lenientJson.decodeFromString<GeminiErrorResponse>(responseString)
+                    throw Exception(errorResponse.error.message)
+                } catch (e: Exception) {
+                    throw Exception("API Error: $responseString")
+                }
             }
 
-            val cleanJsonText = jsonText.trim()
-                .removePrefix("```json")
-                .removePrefix("```")
-                .removeSuffix("```")
-                .trim()
+            // Clean and extract JSON from the response
+            val cleanJsonText = extractJsonFromText(jsonText)
 
-            val extractedData = Json.decodeFromString<ExtractedInvoiceData>(cleanJsonText)
+            val extractedData = lenientJson.decodeFromString<ExtractedInvoiceData>(cleanJsonText)
             Result.success(extractedData)
         } catch (e: Exception) {
             Result.failure(Exception("AI extraction failed: ${e.message}"))
         }
+    }
+
+    private fun extractJsonFromText(text: String): String {
+        // Remove markdown code blocks
+        var cleaned = text.trim()
+            .removePrefix("```json")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+
+        // Find JSON object boundaries
+        val startIndex = cleaned.indexOf('{')
+        val endIndex = cleaned.lastIndexOf('}')
+        
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+            cleaned = cleaned.substring(startIndex, endIndex + 1)
+        }
+
+        return cleaned
     }
 
     private fun buildRequest(base64ImageData: String): GeminiRequest {
