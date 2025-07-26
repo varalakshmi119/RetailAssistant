@@ -6,7 +6,6 @@ ksp = "2.2.0-2.0.2"
 coreKtx = "1.16.0"
 
 # Jetpack
-appcompat = "1.7.1"
 activityCompose = "1.10.1"
 composeBom = "2025.07.00"
 lifecycle = "2.9.2"
