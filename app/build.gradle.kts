@@ -69,7 +69,7 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
+    implementation(libs.androidx.material.icons.extended)
     // Koin for Dependency Injection
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
@@ -80,6 +80,8 @@ dependencies {
     implementation(libs.supabase.storage)
     // Ktor client is a transitive dependency of Supabase but can be specified
     implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
 
     // Room for Local Database
     implementation(libs.room.runtime)
@@ -94,6 +96,9 @@ dependencies {
 
     // WorkManager for Background Tasks
     implementation(libs.androidx.work.runtime.ktx)
+
+    // Navigation
+    implementation(libs.androidx.navigation.compose)
 
     // Coil for Image Loading
     implementation(libs.coil.compose)

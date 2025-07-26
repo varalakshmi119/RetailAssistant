@@ -9,6 +9,7 @@ coreKtx = "1.16.0"
 activityCompose = "1.10.1"
 composeBom = "2025.07.00"
 lifecycle = "2.9.2"
+navigation = "2.9.2"
 room = "2.7.2"
 work = "2.10.2"
 
@@ -42,6 +43,7 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 
 # Jetpack Compose (using BOM)
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
@@ -49,6 +51,9 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+
+# Navigation
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 
 # Koin
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
@@ -59,6 +64,8 @@ supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 supabase-storage = { module = "io.github.jan-tennert.supabase:storage-kt", version.ref = "supabase" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 
 # Room
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
