@@ -14,7 +14,6 @@ interface UiAction
 interface UiEvent
 
 abstract class MviViewModel<S : UiState, A : UiAction, E : UiEvent> : ViewModel() {
-    
     private val initialState: S by lazy { createInitialState() }
     abstract fun createInitialState(): S
 
@@ -35,7 +34,9 @@ abstract class MviViewModel<S : UiState, A : UiAction, E : UiEvent> : ViewModel(
 
     private fun subscribeToAction() {
         viewModelScope.launch {
-            _action.collect { handleAction(it) }
+            _action.collect {
+                handleAction(it)
+            }
         }
     }
 

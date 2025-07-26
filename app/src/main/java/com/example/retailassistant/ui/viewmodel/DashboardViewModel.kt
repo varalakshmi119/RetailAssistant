@@ -1,106 +1,108 @@
 package com.example.retailassistant.ui.viewmodel
 
 import androidx.lifecycle.viewModelScope
-import com.example.retailassistant.data.Invoice
 import com.example.retailassistant.data.Customer
+import com.example.retailassistant.data.Invoice
 import com.example.retailassistant.data.InvoiceRepository
 import com.example.retailassistant.ui.MviViewModel
 import com.example.retailassistant.ui.UiAction
 import com.example.retailassistant.ui.UiEvent
 import com.example.retailassistant.ui.UiState
-import kotlinx.coroutines.flow.collectLatest
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// Data class to hold invoice with customer info
 data class InvoiceWithCustomer(
     val invoice: Invoice,
     val customer: Customer?
 )
 
-// State, Actions, and Events for Dashboard Screen
 data class DashboardState(
     val invoicesWithCustomers: List<InvoiceWithCustomer> = emptyList(),
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val totalUnpaid: Double = 0.0,
     val overdueCount: Int = 0
 ) : UiState
 
 sealed class DashboardAction : UiAction {
-    object LoadData : DashboardAction()
     object RefreshData : DashboardAction()
-    object NavigateToAddInvoice : DashboardAction()
-    object NavigateToCustomers : DashboardAction()
+    object Logout : DashboardAction()
 }
 
 sealed class DashboardEvent : UiEvent {
-    object NavigateToAddInvoice : DashboardEvent()
-    object NavigateToCustomers : DashboardEvent()
     data class ShowError(val message: String) : DashboardEvent()
+    data class NavigateToInvoiceDetail(val invoiceId: String) : DashboardEvent()
+    object Logout : DashboardEvent()
 }
 
 class DashboardViewModel(
-    private val repository: InvoiceRepository
+    private val repository: InvoiceRepository,
+    private val supabase: SupabaseClient
 ) : MviViewModel<DashboardState, DashboardAction, DashboardEvent>() {
+
+    val combinedData: StateFlow<DashboardState> =
+        combine(
+            repository.getInvoicesStream(),
+            repository.getCustomersStream()
+        ) { invoices, customers ->
+            val customerMap = customers.associateBy { it.id }
+            val invoicesWithCustomers = invoices.sortedByDescending { it.createdAt }.map { invoice ->
+                InvoiceWithCustomer(
+                    invoice = invoice,
+                    customer = customerMap[invoice.customerId]
+                )
+            }
+            val totalUnpaid = invoices.filter { it.status != com.example.retailassistant.data.InvoiceStatus.PAID }.sumOf { it.totalAmount - it.amountPaid }
+            val overdueCount = invoices.count { it.isOverdue }
+
+            DashboardState(
+                invoicesWithCustomers = invoicesWithCustomers,
+                isLoading = false,
+                totalUnpaid = totalUnpaid,
+                overdueCount = overdueCount
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DashboardState()
+        )
 
     override fun createInitialState(): DashboardState = DashboardState()
 
     init {
-        loadData()
+        refreshData(isInitial = true)
     }
 
     override fun handleAction(action: DashboardAction) {
         when (action) {
-            is DashboardAction.LoadData -> loadData()
             is DashboardAction.RefreshData -> refreshData()
-            is DashboardAction.NavigateToAddInvoice -> sendEvent(DashboardEvent.NavigateToAddInvoice)
-            is DashboardAction.NavigateToCustomers -> sendEvent(DashboardEvent.NavigateToCustomers)
+            is DashboardAction.Logout -> logout()
         }
     }
 
-    private fun loadData() {
+    private fun logout() {
         viewModelScope.launch {
-            combine(
-                repository.getInvoicesStream(),
-                repository.getCustomersStream()
-            ) { invoices, customers ->
-                // Create a map for quick customer lookup
-                val customerMap = customers.associateBy { it.id }
-                
-                // Join invoices with customers
-                val invoicesWithCustomers = invoices.map { invoice ->
-                    InvoiceWithCustomer(
-                        invoice = invoice,
-                        customer = customerMap[invoice.customerId]
-                    )
-                }
-                
-                val totalUnpaid = invoices.filter { it.status.name == "UNPAID" }
-                    .sumOf { it.totalAmount - it.amountPaid }
-                
-                val overdueCount = invoices.count { it.status.name == "OVERDUE" }
-                
-                setState {
-                    copy(
-                        invoicesWithCustomers = invoicesWithCustomers,
-                        isLoading = false,
-                        totalUnpaid = totalUnpaid,
-                        overdueCount = overdueCount
-                    )
-                }
-            }.collectLatest { }
+            supabase.auth.signOut()
+            sendEvent(DashboardEvent.Logout)
         }
     }
 
-    private fun refreshData() {
+    fun onInvoiceClicked(invoiceId: String) {
+        sendEvent(DashboardEvent.NavigateToInvoiceDetail(invoiceId))
+    }
+
+    private fun refreshData(isInitial: Boolean = false) {
         viewModelScope.launch {
-            setState { copy(isLoading = true) }
-            
+            if (!isInitial) setState { copy(isRefreshing = true) }
             repository.syncUserData().onFailure { error ->
                 sendEvent(DashboardEvent.ShowError(error.message ?: "Sync failed"))
             }
-            
-            setState { copy(isLoading = false) }
+            if (!isInitial) setState { copy(isRefreshing = false) }
         }
     }
 }

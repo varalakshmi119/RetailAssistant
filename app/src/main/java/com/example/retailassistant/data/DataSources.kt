@@ -1,5 +1,4 @@
 package com.example.retailassistant.data
-
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -11,6 +10,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import com.example.retailassistant.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
@@ -26,42 +26,48 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-
 // --- Room Database & DAOs ---
 @Database(
-    entities = [Customer::class, Invoice::class], 
-    version = 1, 
+    entities = [Customer::class, Invoice::class, InteractionLog::class],
+    version = 1,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun invoiceDao(): InvoiceDao
     abstract fun customerDao(): CustomerDao
+    abstract fun interactionLogDao(): InteractionLogDao
 }
-
 @Dao
 interface InvoiceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertInvoices(invoices: List<Invoice>)
-
     @Query("SELECT * FROM invoices WHERE userId = :userId ORDER BY createdAt DESC")
     fun getInvoicesStreamForUser(userId: String): Flow<List<Invoice>>
-
+    @Query("SELECT * FROM invoices WHERE id = :invoiceId")
+    fun getInvoiceById(invoiceId: String): Flow<Invoice?>
     @Query("DELETE FROM invoices WHERE userId = :userId")
     suspend fun clearUserInvoices(userId: String)
 }
-
 @Dao
 interface CustomerDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCustomers(customers: List<Customer>)
-
-    @Query("SELECT * FROM customers WHERE userId = :userId")
+    @Query("SELECT * FROM customers WHERE userId = :userId ORDER BY name ASC")
     fun getCustomersStreamForUser(userId: String): Flow<List<Customer>>
-
+    @Query("SELECT * FROM customers WHERE id = :customerId")
+    fun getCustomerById(customerId: String): Flow<Customer?>
     @Query("DELETE FROM customers WHERE userId = :userId")
     suspend fun clearUserCustomers(userId: String)
 }
-
+@Dao
+interface InteractionLogDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLogs(logs: List<InteractionLog>)
+    @Query("SELECT * FROM interaction_logs WHERE invoiceId = :invoiceId ORDER BY createdAt DESC")
+    fun getLogsForInvoice(invoiceId: String): Flow<List<InteractionLog>>
+    @Query("DELETE FROM interaction_logs WHERE userId = :userId")
+    suspend fun clearUserLogs(userId: String)
+}
 // --- Image Processing Utility ---
 object ImageUtils {
     suspend fun compressImage(context: Context, imageUri: Uri): ByteArray? = withContext(Dispatchers.IO) {
@@ -69,140 +75,131 @@ object ImageUtils {
             context.contentResolver.openInputStream(imageUri)?.use { inputStream ->
                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeStream(inputStream, null, options)
-                
                 context.contentResolver.openInputStream(imageUri)?.use { bitmapStream ->
                     var inSampleSize = 1
                     val (height: Int, width: Int) = options.outHeight to options.outWidth
-                    
-                    if (height > 1080 || width > 1080) {
+                    val reqWidth = 1080
+                    val reqHeight = 1080
+                    if (height > reqHeight || width > reqWidth) {
                         val halfHeight: Int = height / 2
                         val halfWidth: Int = width / 2
-                        
-                        while (halfHeight / inSampleSize >= 1080 && halfWidth / inSampleSize >= 1080) {
+                        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
                             inSampleSize *= 2
                         }
                     }
-                    
-                    val finalOptions = BitmapFactory.Options().apply { 
-                        this.inSampleSize = inSampleSize 
+                    val finalOptions = BitmapFactory.Options().apply {
+                        this.inSampleSize = inSampleSize
                     }
                     val bitmap = BitmapFactory.decodeStream(bitmapStream, null, finalOptions)
-                    
                     ByteArrayOutputStream().use { baos ->
-                        bitmap?.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+                        bitmap?.compress(Bitmap.CompressFormat.JPEG, 85, baos)
                         baos.toByteArray()
                     }
                 }
             }
-        } catch (e: IOException) { 
-            null 
+        } catch (e: IOException) {
+            e.printStackTrace()
+            null
         }
     }
 }
 // --- Gemini API Client ---
 object GeminiApiClient {
     private const val MODEL_ID = "gemini-2.5-flash"
-    private const val API_KEY = "AIzaSyClNieoNdf3oTfWz1ZmI6fTsrjkp9ak7pg"
+    private const val API_KEY = BuildConfig.GEMINI_API_KEY
     private const val API_URL = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_ID:generateContent?key=$API_KEY"
-
     private val client by lazy {
         HttpClient(Android) {
             install(ContentNegotiation) {
-                json(Json { 
+                json(Json {
                     ignoreUnknownKeys = true
-                    isLenient = true 
+                    isLenient = true
+                    coerceInputValues = true
                 })
+            }
+            engine {
+                connectTimeout = 60_000
+                socketTimeout = 60_000
             }
         }
     }
-
     suspend fun extractInvoiceData(imageBytes: ByteArray): Result<ExtractedInvoiceData> {
         return try {
+            if (API_KEY.isBlank()) {
+                throw Exception("Gemini API key is not configured. Please see instructions in DataSources.kt.")
+            }
             val base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
             val request = buildRequest(base64Image)
-            
             val responseString: String = client.post(API_URL) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }.body()
-
-            // Create a more lenient JSON parser for Gemini responses
             val lenientJson = Json {
                 ignoreUnknownKeys = true
                 isLenient = true
                 coerceInputValues = true
             }
-
             val jsonText = if (responseString.contains("\"candidates\"")) {
                 val response = lenientJson.decodeFromString<GeminiResponse>(responseString)
                 response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
                     ?: throw Exception("AI response was empty.")
             } else {
-                // Try to parse as error response, but if it fails, return the raw response
                 try {
                     val errorResponse = lenientJson.decodeFromString<GeminiErrorResponse>(responseString)
-                    throw Exception(errorResponse.error.message)
+                    throw Exception("API Error: ${errorResponse.error.message}")
                 } catch (e: Exception) {
                     throw Exception("API Error: $responseString")
                 }
             }
-
-            // Clean and extract JSON from the response
             val cleanJsonText = extractJsonFromText(jsonText)
-
             val extractedData = lenientJson.decodeFromString<ExtractedInvoiceData>(cleanJsonText)
             Result.success(extractedData)
         } catch (e: Exception) {
-            Result.failure(Exception("AI extraction failed: ${e.message}"))
+            Result.failure(Exception("AI extraction failed: ${e.message ?: "An unknown error occurred."}"))
         }
     }
-
     private fun extractJsonFromText(text: String): String {
-        // Remove markdown code blocks
-        var cleaned = text.trim()
+        return text.trim()
             .removePrefix("```json")
             .removePrefix("```")
             .removeSuffix("```")
             .trim()
-
-        // Find JSON object boundaries
-        val startIndex = cleaned.indexOf('{')
-        val endIndex = cleaned.lastIndexOf('}')
-        
-        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-            cleaned = cleaned.substring(startIndex, endIndex + 1)
-        }
-
-        return cleaned
     }
-
     private fun buildRequest(base64ImageData: String): GeminiRequest {
         val prompt = """
-            You are an expert at extracting data from invoice images. Analyze this invoice image and extract the following information:
-            
-            1. Customer Name (the person/company being billed)
-            2. Invoice Date (convert to YYYY-MM-DD format)
-            3. Phone Number (10-digit format if available)
-            
-            Return ONLY a valid JSON object with these exact keys:
-            {"customer_name": "extracted name or null", "date": "YYYY-MM-DD or null", "phone_number": "phone number or null"}
-            
-            Rules:
-            - Use null for missing information.
-            - Date must be in YYYY-MM-DD format.
-            - No additional text or explanations.
-            - Ensure valid JSON syntax.
+            You are an expert AI for the "Retail Assistant" app, designed for small business owners. Your task is to analyze the provided invoice image and extract key information into a single, valid JSON object.
+            Extract these fields:
+            - "customer_name": The person or company being billed.
+            - "date": The invoice issue date in "YYYY-MM-DD" format.
+            - "due_date": The payment due date in "YYYY-MM-DD" format. If none, use the issue date.
+            - "phone_number": The customer's phone number.
+            - "email": The customer's email address.
+            - "total_amount": The final total amount as a numeric value (e.g., 123.45).
+            **CRITICAL RULES:**
+            - Your output MUST be ONLY the JSON object. No extra text, comments, or markdown formatting like ```json.
+            - If a value is not found, use `null` for that field.
+            - The JSON must be perfectly valid.
+            - `total_amount` must be a number, not a string.
+            Example of a perfect response:
+            {
+              "customer_name": "John Appleseed",
+              "date": "2025-07-26",
+              "due_date": "2025-08-25",
+              "phone_number": "555-123-4567",
+              "email": "john.appleseed@example.com",
+              "total_amount": 199.99
+            }
         """.trimIndent()
-
         val contents = listOf(
             Content(
-                "user", 
+                "user",
                 listOf(
                     Part(text = prompt),
                     Part(inlineData = InlineData("image/jpeg", base64ImageData))
                 )
             )
         )
+        // Forcing JSON output is a powerful feature of newer Gemini models
         val generationConfig = GenerationConfig(responseMimeType = "application/json")
         return GeminiRequest(contents, generationConfig)
     }

@@ -1,16 +1,20 @@
 package com.example.retailassistant.di
 
 import androidx.room.Room
+import com.example.retailassistant.BuildConfig
 import com.example.retailassistant.data.AppDatabase
 import com.example.retailassistant.data.InvoiceRepository
 import com.example.retailassistant.ui.viewmodel.AuthViewModel
-import com.example.retailassistant.ui.viewmodel.DashboardViewModel
 import com.example.retailassistant.ui.viewmodel.CustomerViewModel
-import com.example.retailassistant.ui.viewmodel.InvoiceViewModel
+import com.example.retailassistant.ui.viewmodel.DashboardViewModel
+import com.example.retailassistant.ui.viewmodel.InvoiceCreationViewModel
+import com.example.retailassistant.ui.viewmodel.InvoiceDetailViewModel
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
+import kotlinx.coroutines.Dispatchers
+import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -18,8 +22,8 @@ val appModule = module {
     // Supabase Singleton
     single {
         createSupabaseClient(
-            supabaseUrl = "https://zpyenxdclzrpmmlyxnyl.supabase.co",
-            supabaseKey = "sb_publishable_-8BFZCc_FSd5YOuDJX3bRQ_vb0oripl"
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseKey = BuildConfig.SUPABASE_KEY
         ) {
             install(Auth)
             install(Postgrest)
@@ -30,22 +34,24 @@ val appModule = module {
     // Room Database Singleton
     single {
         Room.databaseBuilder(
-            get(), // Koin provides the ApplicationContext
+            androidApplication(),
             AppDatabase::class.java,
             "retail-assistant-db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        ).fallbackToDestructiveMigration(false).build()
     }
 
     // DAOs (provided from the AppDatabase)
     single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().customerDao() }
+    single { get<AppDatabase>().interactionLogDao() }
 
     // Repository Singleton
-    single { InvoiceRepository(get(), get(), get()) }
+    single { InvoiceRepository(get(), get(), get(), get(), Dispatchers.IO) }
 
     // ViewModels
     viewModel { AuthViewModel(get(), get()) }
-    viewModel { DashboardViewModel(get()) }
+    viewModel { DashboardViewModel(get(), get()) }
     viewModel { CustomerViewModel(get()) }
-    viewModel { InvoiceViewModel(get()) }
+    viewModel { InvoiceCreationViewModel(get()) }
+    viewModel { params -> InvoiceDetailViewModel(invoiceId = params.get(), repository = get()) }
 }

@@ -11,7 +11,6 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
 
-// State, Actions, and Events for Auth Screen
 data class AuthState(
     val email: String = "",
     val password: String = "",
@@ -36,7 +35,6 @@ class AuthViewModel(
     private val supabase: SupabaseClient,
     private val repository: InvoiceRepository
 ) : MviViewModel<AuthState, AuthAction, AuthEvent>() {
-
     override fun createInitialState(): AuthState = AuthState()
 
     override fun handleAction(action: AuthAction) {
@@ -52,21 +50,17 @@ class AuthViewModel(
     private fun signIn() {
         viewModelScope.launch {
             setState { copy(isLoading = true) }
-            
             try {
                 supabase.auth.signInWith(Email) {
-                    email = currentState.email
+                    email = currentState.email.trim()
                     password = currentState.password
                 }
-                
-                // Sync user data after successful login
-                repository.syncUserData().onFailure { 
-                    // Log error but don't block login
+                repository.syncUserData().onFailure {
+                    println("Initial sync failed: ${it.message}")
                 }
-                
                 sendEvent(AuthEvent.NavigateToDashboard)
             } catch (e: Exception) {
-                sendEvent(AuthEvent.ShowError(e.message ?: "Sign in failed"))
+                sendEvent(AuthEvent.ShowError(e.message ?: "An unknown error occurred during sign-in."))
             } finally {
                 setState { copy(isLoading = false) }
             }
@@ -76,16 +70,14 @@ class AuthViewModel(
     private fun signUp() {
         viewModelScope.launch {
             setState { copy(isLoading = true) }
-            
             try {
                 supabase.auth.signUpWith(Email) {
-                    email = currentState.email
+                    email = currentState.email.trim()
                     password = currentState.password
                 }
-                
                 sendEvent(AuthEvent.NavigateToDashboard)
             } catch (e: Exception) {
-                sendEvent(AuthEvent.ShowError(e.message ?: "Sign up failed"))
+                sendEvent(AuthEvent.ShowError(e.message ?: "An unknown error occurred during sign-up."))
             } finally {
                 setState { copy(isLoading = false) }
             }
