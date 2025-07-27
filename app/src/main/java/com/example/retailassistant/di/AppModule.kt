@@ -1,53 +1,64 @@
 package com.example.retailassistant.di
+
 import androidx.room.Room
-import com.example.retailassistant.BuildConfig
-import com.example.retailassistant.data.AppDatabase
-import com.example.retailassistant.data.InvoiceRepository
-import com.example.retailassistant.ui.viewmodel.AuthViewModel
-import com.example.retailassistant.ui.viewmodel.CustomerDetailViewModel
-import com.example.retailassistant.ui.viewmodel.CustomerViewModel
-import com.example.retailassistant.ui.viewmodel.DashboardViewModel
-import com.example.retailassistant.ui.viewmodel.InvoiceCreationViewModel
-import com.example.retailassistant.ui.viewmodel.InvoiceDetailViewModel
-import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.storage.Storage
+import com.example.retailassistant.core.ImageHandler
+import com.example.retailassistant.data.db.AppDatabase
+import com.example.retailassistant.data.remote.GeminiClient
+import com.example.retailassistant.data.remote.createSupabaseClient
+import com.example.retailassistant.data.repository.RetailRepository
+import com.example.retailassistant.data.repository.RetailRepositoryImpl
+import com.example.retailassistant.features.auth.AuthViewModel
+import com.example.retailassistant.features.customers.CustomerDetailViewModel
+import com.example.retailassistant.features.customers.CustomerListViewModel
+import com.example.retailassistant.features.dashboard.DashboardViewModel
+import com.example.retailassistant.features.invoices.InvoiceCreationViewModel
+import com.example.retailassistant.features.invoices.InvoiceDetailViewModel
 import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidApplication
-import org.koin.core.module.dsl.viewModel
+import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
+
+/**
+ * Koin dependency injection module. This is the central hub for providing
+ * instances of databases, repositories, clients, and ViewModels.
+ */
 val appModule = module {
-    // Supabase Singleton
+    // --- SINGLETONS (Data & Core Layers) ---
+
+    // Provides a single, application-wide instance of the Supabase client.
+    single { createSupabaseClient() }
+
+    // Provides single instances of our now-injectable utility classes.
+    single { GeminiClient() }
+    single { ImageHandler() }
+
+    // Provides a single instance of the Room database.
     single {
-        createSupabaseClient(
-            supabaseUrl = BuildConfig.SUPABASE_URL,
-            supabaseKey = BuildConfig.SUPABASE_KEY
-        ) {
-            install(Auth)
-            install(Postgrest)
-            install(Storage)
-        }
+        Room.databaseBuilder(androidApplication(), AppDatabase::class.java, "retail_assistant.db")
+            // In a real production app, migrations should be handled properly.
+            .fallbackToDestructiveMigration()
+            .build()
     }
-    // Room Database Singleton
-    single {
-        Room.databaseBuilder(
-            androidApplication(),
-            AppDatabase::class.java,
-            "retail-assistant-db"
-        ).fallbackToDestructiveMigration(false).build()
-    }
-    // DAOs (provided from the AppDatabase)
-    single { get<AppDatabase>().invoiceDao() }
+
+    // Provides DAOs from the AppDatabase instance.
     single { get<AppDatabase>().customerDao() }
+    single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().interactionLogDao() }
-    // Repository Singleton
-    single { InvoiceRepository(get(), get(), get(), get(), Dispatchers.IO) }
-    // ViewModels
+
+    // Provides the central repository. The repository pattern abstracts data sources.
+    single<RetailRepository> {
+        RetailRepositoryImpl(get(), get(), get(), get(), Dispatchers.IO)
+    }
+
+    // --- VIEWMODELS ---
+    // ViewModels are provided with their dependencies injected by Koin.
+    // The `viewModel` factory ensures they are tied to the lifecycle of the Composable.
     viewModel { AuthViewModel(get(), get()) }
-    viewModel { DashboardViewModel(get(), get()) }
-    viewModel { CustomerViewModel(get()) }
-    viewModel { InvoiceCreationViewModel(get()) }
+    viewModel { DashboardViewModel(get()) }
+    viewModel { CustomerListViewModel(get()) }
+    viewModel { InvoiceCreationViewModel(get(), get(), get()) }
+
+    // ViewModels that require runtime parameters (like an ID) use Koin's parameter injection.
     viewModel { params -> InvoiceDetailViewModel(invoiceId = params.get(), repository = get()) }
     viewModel { params -> CustomerDetailViewModel(customerId = params.get(), repository = get()) }
 }
