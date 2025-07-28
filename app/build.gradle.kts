@@ -15,11 +15,11 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.retailassistant"
+    namespace = "com.retailassistant"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.retailassistant"
+        applicationId = "com.retailassistant"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
