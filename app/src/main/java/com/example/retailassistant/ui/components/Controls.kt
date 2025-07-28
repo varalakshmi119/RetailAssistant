@@ -1,11 +1,6 @@
 package com.example.retailassistant.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,6 +11,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,9 +30,11 @@ import androidx.compose.ui.unit.toSize
 import com.example.retailassistant.data.db.Customer
 import com.example.retailassistant.ui.theme.AppGradients
 import com.example.retailassistant.ui.theme.GradientColors
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Locale
 
 @Composable
 fun PrimaryButton(
@@ -53,15 +51,22 @@ fun PrimaryButton(
         enabled = enabled && !isLoading,
         shape = MaterialTheme.shapes.medium,
     ) {
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                icon?.let {
-                    Icon(it, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
+        AnimatedContent(
+            targetState = isLoading,
+            transitionSpec = {
+                (fadeIn() + scaleIn()).togetherWith(fadeOut() + scaleOut())
+            }, label = "PrimaryButtonLoading"
+        ) { loading ->
+            if (loading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    icon?.let {
+                        Icon(it, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 }
-                Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -78,16 +83,16 @@ fun GradientButton(
     icon: ImageVector? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-
     Box(
         modifier = modifier
+            .height(56.dp)
             .scale(if (enabled) 1f else 0.95f)
             .clip(MaterialTheme.shapes.medium)
             .background(
                 brush = if (enabled) {
                     Brush.horizontalGradient(colors = listOf(gradient.start, gradient.end))
                 } else {
-                    Brush.horizontalGradient(colors = listOf(Color.Gray, Color.DarkGray))
+                    Brush.horizontalGradient(colors = listOf(Color.Gray.copy(alpha = 0.5f), Color.DarkGray.copy(alpha = 0.5f)))
                 }
             )
             .clickable(
@@ -95,26 +100,26 @@ fun GradientButton(
                 indication = ripple(color = Color.White.copy(alpha = 0.3f)),
                 enabled = enabled && !isLoading,
                 onClick = onClick
-            )
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            ),
         contentAlignment = Alignment.Center
     ) {
-        AnimatedVisibility(visible = isLoading, enter = fadeIn(), exit = fadeOut()) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = Color.White,
-                strokeWidth = 2.dp
-            )
-        }
-        AnimatedVisibility(visible = !isLoading, enter = fadeIn(), exit = fadeOut()) {
-             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                icon?.let {
-                    Icon(imageVector = it, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+        AnimatedContent(targetState = isLoading, label = "GradientButtonLoading") { loading ->
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    icon?.let {
+                        Icon(imageVector = it, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                    Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 }
-                Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -149,7 +154,11 @@ fun LabeledTextField(
         leadingIcon = leadingIcon,
         visualTransformation = visualTransformation,
         isError = isError,
-        prefix = { if (prefix != null) Text(text = prefix) }
+        prefix = { if (prefix != null) Text(text = prefix, style = MaterialTheme.typography.bodyLarge) },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        )
     )
 }
 
@@ -158,9 +167,8 @@ fun SearchTextField(value: String, onValueChange: (String) -> Unit, placeholder:
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text("Search") },
         placeholder = { Text(placeholder) },
-        leadingIcon = { Icon(Icons.Default.Search, "Search") },
+        leadingIcon = { Icon(Icons.Default.Search, "Search Icon") },
         trailingIcon = {
             AnimatedVisibility(
                 visible = value.isNotEmpty(),
@@ -174,7 +182,11 @@ fun SearchTextField(value: String, onValueChange: (String) -> Unit, placeholder:
         },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        shape = MaterialTheme.shapes.extraLarge
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     )
 }
 
@@ -187,8 +199,9 @@ fun AutoCompleteTextField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var textFieldSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+
     val filteredSuggestions = remember(value, suggestions) {
-        if (value.isBlank() || !expanded) emptyList()
+        if (value.isBlank()) emptyList()
         else suggestions.filter {
             it.name.contains(value, ignoreCase = true) || it.phone?.contains(value) == true
         }
@@ -237,7 +250,10 @@ fun ActionButton(text: String, icon: ImageVector, onClick: () -> Unit, modifier:
         modifier = modifier.height(52.dp),
         shape = MaterialTheme.shapes.medium
     ) {
-        Row {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             Icon(icon, contentDescription = null, Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text(text, fontWeight = FontWeight.SemiBold)
@@ -245,68 +261,33 @@ fun ActionButton(text: String, icon: ImageVector, onClick: () -> Unit, modifier:
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedDatePickerField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    value: LocalDate,
+    onValueChange: (LocalDate) -> Unit,
     label: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState()
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = value.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
 
-    // Parse existing value to set initial date
-    LaunchedEffect(value) {
-        if (value.isNotEmpty()) {
-            try {
-                val date = LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                val millis = date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-                datePickerState.selectedDateMillis = millis
-            } catch (e: Exception) { /* Invalid date format, ignore */ }
-        }
-    }
-
-    Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        onClick = { if (enabled) showDatePicker = true },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = value.format(DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault())),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = "Date Picker") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled) { showDatePicker = true },
+            enabled = enabled,
+            shape = MaterialTheme.shapes.medium
         )
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.CalendarToday,
-                contentDescription = "Select date",
-                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = label, style = MaterialTheme.typography.labelSmall)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = if (value.isNotEmpty()) {
-                        try {
-                            val date = LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                            date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()))
-                        } catch (e: Exception) {
-                            value
-                        }
-                    } else "Select date",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (value.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (value.isNotEmpty()) FontWeight.Medium else FontWeight.Normal
-                )
-            }
-        }
     }
 
     if (showDatePicker) {
@@ -317,8 +298,8 @@ fun EnhancedDatePickerField(
                     onClick = {
                         showDatePicker = false
                         datePickerState.selectedDateMillis?.let { millis ->
-                            val date = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                            onValueChange(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
+                            val selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                            onValueChange(selectedDate)
                         }
                     }
                 ) { Text("OK") }
@@ -327,7 +308,7 @@ fun EnhancedDatePickerField(
                 TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
             }
         ) {
-            DatePicker(state = datePickerState, showModeToggle = false)
+            DatePicker(state = datePickerState, showModeToggle = true)
         }
     }
 }

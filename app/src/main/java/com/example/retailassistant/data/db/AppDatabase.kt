@@ -2,6 +2,7 @@ package com.example.retailassistant.data.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
 /**
  * The Room database definition. It serves as the single source of truth for all
@@ -12,6 +13,7 @@ import androidx.room.RoomDatabase
     version = 1,
     exportSchema = false // Schema export is recommended for production apps but disabled here for simplicity.
 )
+@TypeConverters(DateConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
     abstract fun invoiceDao(): InvoiceDao

@@ -22,168 +22,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
-import com.example.retailassistant.core.MviViewModel
-import com.example.retailassistant.core.UiAction
-import com.example.retailassistant.core.UiEvent
-import com.example.retailassistant.core.UiState
-import com.example.retailassistant.core.Utils
-import com.example.retailassistant.data.db.Customer
-import com.example.retailassistant.data.db.InteractionLog
 import com.example.retailassistant.data.db.Invoice
 import com.example.retailassistant.data.db.InvoiceStatus
-import com.example.retailassistant.data.repository.RetailRepository
 import com.example.retailassistant.ui.components.*
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+import java.time.LocalDate
 
-// --- MVI Definitions ---
-
-sealed class ActiveDialog {
-    data object AddPayment : ActiveDialog()
-    data object AddNote : ActiveDialog()
-    data object Postpone : ActiveDialog()
-}
-
-data class InvoiceDetailState(
-    val invoice: Invoice? = null,
-    val customer: Customer? = null,
-    val logs: List<InteractionLog> = emptyList(),
-    val imageUrl: String? = null,
-    val isLoading: Boolean = true,
-    val isProcessing: Boolean = false, // For dialog actions
-    val activeDialog: ActiveDialog? = null,
-) : UiState
-
-sealed interface InvoiceDetailAction : UiAction {
-    data class DetailsLoaded(val details: Pair<Invoice?, List<InteractionLog>>) : InvoiceDetailAction
-    data class CustomerLoaded(val customer: Customer?) : InvoiceDetailAction
-    data class ImageUrlLoaded(val url: String) : InvoiceDetailAction
-    data class LoadImage(val storagePath: String) : InvoiceDetailAction
-    object CallCustomer : InvoiceDetailAction
-
-    // Dialog Actions
-    data class ShowDialog(val dialog: ActiveDialog?) : InvoiceDetailAction
-    data class AddPayment(val amount: Double, val note: String?) : InvoiceDetailAction
-    data class AddNote(val note: String) : InvoiceDetailAction
-    data class PostponeDueDate(val newDueDate: String, val reason: String?) : InvoiceDetailAction
-}
-
-sealed interface InvoiceDetailEvent : UiEvent {
-    data class ShowError(val message: String) : InvoiceDetailEvent
-    data class ShowSuccess(val message: String) : InvoiceDetailEvent
-    data class MakePhoneCall(val phoneNumber: String) : InvoiceDetailEvent
-}
-
-// --- ViewModel ---
-class InvoiceDetailViewModel(
-    private val invoiceId: String,
-    private val repository: RetailRepository
-) : MviViewModel<InvoiceDetailState, InvoiceDetailAction, InvoiceDetailEvent>() {
-
-    init {
-        repository.getInvoiceWithDetails(invoiceId)
-            .onEach { (invoice, logs) ->
-                sendAction(InvoiceDetailAction.DetailsLoaded(invoice to logs))
-                // When invoice details load, trigger loading of related data.
-                invoice?.let {
-                    loadCustomer(it.customerId)
-                    sendAction(InvoiceDetailAction.LoadImage(it.originalScanUrl))
-                }
-            }
-            .launchIn(viewModelScope)
-    }
-
-    private fun loadCustomer(customerId: String) {
-        viewModelScope.launch {
-            repository.getCustomerById(customerId).collect { customer ->
-                sendAction(InvoiceDetailAction.CustomerLoaded(customer))
-            }
-        }
-    }
-
-    private fun loadImage(storagePath: String) {
-        viewModelScope.launch {
-            if (currentState.imageUrl == null) { // Only load if not already loaded
-                repository.getPublicUrl(storagePath).onSuccess { url ->
-                    sendAction(InvoiceDetailAction.ImageUrlLoaded(url))
-                }
-            }
-        }
-    }
-
-    override fun createInitialState(): InvoiceDetailState = InvoiceDetailState()
-
-    override fun handleAction(action: InvoiceDetailAction) {
-        when (action) {
-            is InvoiceDetailAction.DetailsLoaded -> setState { copy(invoice = action.details.first, logs = action.details.second, isLoading = false) }
-            is InvoiceDetailAction.CustomerLoaded -> setState { copy(customer = action.customer) }
-            is InvoiceDetailAction.ImageUrlLoaded -> setState { copy(imageUrl = action.url) }
-            is InvoiceDetailAction.LoadImage -> loadImage(action.storagePath)
-            is InvoiceDetailAction.AddPayment -> addPayment(action.amount, action.note)
-            is InvoiceDetailAction.AddNote -> addNote(action.note)
-            is InvoiceDetailAction.PostponeDueDate -> postponeDueDate(action.newDueDate, action.reason)
-            is InvoiceDetailAction.CallCustomer -> callCustomer()
-            is InvoiceDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog) }
-        }
-    }
-
-    private fun addPayment(amount: Double, note: String?) {
-        viewModelScope.launch {
-            if (amount <= 0) {
-                sendEvent(InvoiceDetailEvent.ShowError("Payment amount must be positive."))
-                return@launch
-            }
-            setState { copy(isProcessing = true) }
-            repository.addPayment(invoiceId, amount, note)
-                .onSuccess { sendEvent(InvoiceDetailEvent.ShowSuccess("Payment recorded.")) }
-                .onFailure { sendEvent(InvoiceDetailEvent.ShowError(it.message ?: "Failed to record payment.")) }
-            setState { copy(isProcessing = false, activeDialog = null) }
-        }
-    }
-
-    private fun addNote(note: String) {
-        viewModelScope.launch {
-            if (note.isBlank()) {
-                sendEvent(InvoiceDetailEvent.ShowError("Note cannot be empty."))
-                return@launch
-            }
-            setState { copy(isProcessing = true) }
-            repository.addNote(invoiceId, note)
-                .onSuccess { sendEvent(InvoiceDetailEvent.ShowSuccess("Note added.")) }
-                .onFailure { sendEvent(InvoiceDetailEvent.ShowError(it.message ?: "Failed to add note.")) }
-            setState { copy(isProcessing = false, activeDialog = null) }
-        }
-    }
-
-    private fun postponeDueDate(newDueDate: String, reason: String?) {
-        viewModelScope.launch {
-            if (!Utils.isValidDate(newDueDate)) {
-                sendEvent(InvoiceDetailEvent.ShowError("Invalid date format. Use YYYY-MM-DD."))
-                return@launch
-            }
-            setState { copy(isProcessing = true) }
-            repository.postponeDueDate(invoiceId, newDueDate, reason)
-                .onSuccess { sendEvent(InvoiceDetailEvent.ShowSuccess("Due date postponed.")) }
-                .onFailure { sendEvent(InvoiceDetailEvent.ShowError(it.message ?: "Failed to postpone due date.")) }
-            setState { copy(isProcessing = false, activeDialog = null) }
-        }
-    }
-
-    private fun callCustomer() {
-        currentState.customer?.phone?.takeIf { it.isNotBlank() }
-            ?.let { sendEvent(InvoiceDetailEvent.MakePhoneCall(it)) }
-            ?: sendEvent(InvoiceDetailEvent.ShowError("Customer has no phone number."))
-    }
-}
-
-
-// --- Screen ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvoiceDetailScreen(
@@ -195,7 +42,7 @@ fun InvoiceDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
                 is InvoiceDetailEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
@@ -231,8 +78,7 @@ fun InvoiceDetailScreen(
                 InvoiceDetailContent(
                     state = state,
                     modifier = Modifier.padding(padding),
-                    onCallCustomer = { viewModel.sendAction(InvoiceDetailAction.CallCustomer) },
-                    onShowDialog = { dialog -> viewModel.sendAction(InvoiceDetailAction.ShowDialog(dialog)) }
+                    onAction = viewModel::sendAction
                 )
             }
         }
@@ -244,7 +90,7 @@ private fun HandleDialogs(
     state: InvoiceDetailState,
     onAction: (InvoiceDetailAction) -> Unit
 ) {
-    when (state.activeDialog) {
+    when (val dialog = state.activeDialog) {
         ActiveDialog.AddPayment -> AddPaymentDialog(
             onDismiss = { onAction(InvoiceDetailAction.ShowDialog(null)) },
             onConfirm = { amount, note -> onAction(InvoiceDetailAction.AddPayment(amount, note)) },
@@ -256,7 +102,7 @@ private fun HandleDialogs(
             isProcessing = state.isProcessing
         )
         ActiveDialog.Postpone -> PostponeDueDateDialog(
-            currentDueDate = state.invoice?.dueDate ?: "",
+            currentDueDate = state.invoice?.dueDate ?: LocalDate.now(),
             onDismiss = { onAction(InvoiceDetailAction.ShowDialog(null)) },
             onConfirm = { newDueDate, reason -> onAction(InvoiceDetailAction.PostponeDueDate(newDueDate, reason)) },
             isProcessing = state.isProcessing
@@ -269,8 +115,7 @@ private fun HandleDialogs(
 private fun InvoiceDetailContent(
     state: InvoiceDetailState,
     modifier: Modifier,
-    onCallCustomer: () -> Unit,
-    onShowDialog: (ActiveDialog) -> Unit,
+    onAction: (InvoiceDetailAction) -> Unit,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -281,24 +126,27 @@ private fun InvoiceDetailContent(
             CustomerHeader(
                 customerName = state.customer?.name ?: "Unknown Customer",
                 customerPhone = state.customer?.phone,
-                onCall = onCallCustomer
+                onCall = { onAction(InvoiceDetailAction.CallCustomer) }
             )
         }
         item { PaymentSummaryCard(invoice = state.invoice!!) }
         item {
             ActionButtons(
                 invoice = state.invoice,
-                onAddPayment = { onShowDialog(ActiveDialog.AddPayment) },
-                onAddNote = { onShowDialog(ActiveDialog.AddNote) },
-                onPostpone = { onShowDialog(ActiveDialog.Postpone) }
+                onAddPayment = { onAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddPayment)) },
+                onAddNote = { onAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddNote)) },
+                onPostpone = { onAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) }
             )
         }
         item {
-            InvoiceImageCard(imageUrl = state.imageUrl)
+            InvoiceImageCard(
+                imageUrl = state.imageUrl,
+                storagePath = state.invoice?.originalScanUrl
+            )
         }
         if (state.logs.isNotEmpty()) {
             item {
-                Text("Activity Log", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Activity Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             items(state.logs, key = { it.id }) { log ->
                 InteractionLogCard(log = log)
@@ -321,7 +169,7 @@ private fun ActionButtons(invoice: Invoice?, onAddPayment: () -> Unit, onAddNote
 }
 
 @Composable
-private fun InvoiceImageCard(imageUrl: String?) {
+private fun InvoiceImageCard(imageUrl: String?, storagePath: String?) {
     var isExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -335,6 +183,7 @@ private fun InvoiceImageCard(imageUrl: String?) {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(imageUrl)
+                    .memoryCacheKey(storagePath) // Use stable path as cache key
                     .crossfade(true)
                     .build(),
                 contentDescription = "Invoice Scan",
@@ -346,7 +195,11 @@ private fun InvoiceImageCard(imageUrl: String?) {
                 loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } },
                 error = {
                     Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text("Image not available or failed to load", style = MaterialTheme.typography.bodyMedium)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.BrokenImage, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Image failed to load", style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             )
@@ -355,6 +208,10 @@ private fun InvoiceImageCard(imageUrl: String?) {
 }
 
 private fun makePhoneCall(context: Context, phoneNumber: String) {
-    val intent = Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri())
-    context.startActivity(intent)
+    try {
+        val intent = Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri())
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        // Can fail if no phone app is available
+    }
 }

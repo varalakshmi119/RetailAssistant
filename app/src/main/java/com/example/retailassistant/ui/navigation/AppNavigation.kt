@@ -11,11 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -23,85 +20,70 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.example.retailassistant.core.rememberAuthState
 import com.example.retailassistant.features.auth.AuthScreen
 import com.example.retailassistant.features.customers.CustomerDetailScreen
 import com.example.retailassistant.features.customers.CustomerListScreen
 import com.example.retailassistant.features.dashboard.DashboardScreen
 import com.example.retailassistant.features.invoices.InvoiceCreationScreen
 import com.example.retailassistant.features.invoices.InvoiceDetailScreen
-import com.example.retailassistant.ui.theme.AppGradients
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import org.koin.compose.koinInject
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
     val supabase: SupabaseClient = koinInject()
-    val authState = rememberAuthState(supabase)
+    val sessionStatus by supabase.auth.sessionStatus.collectAsState()
 
-    var isInitializing by remember { mutableStateOf(true) }
-
-    LaunchedEffect(Unit) {
-        // Give Supabase a moment to restore the session from storage
-        kotlinx.coroutines.delay(200)
-        isInitializing = false
-    }
-
-    // This block automatically navigates the user based on their auth state
-    LaunchedEffect(authState.isAuthenticated, isInitializing) {
-        if (!isInitializing) {
-            val targetRoute = if (authState.isAuthenticated) Screen.Main.createRoute(false) else Screen.Auth.route
-            if (navController.currentDestination?.route != targetRoute) {
-                navController.navigate(targetRoute) {
-                    popUpTo(navController.graph.id) { inclusive = true }
-                }
-            }
+    // The start route is determined by the auth state. It's null while initializing.
+    val startRoute = remember(sessionStatus) {
+        when (sessionStatus) {
+            is SessionStatus.Authenticated -> Screen.Main.createRoute(false) // Default to no sync error
+            is SessionStatus.NotAuthenticated -> Screen.Auth.route
+            else -> null // Initializing or other states
         }
     }
 
-    if (isInitializing) {
-        // Show a branded loading screen while checking session
+    if (startRoute == null) {
+        // Show a loading indicator while the session is being initialized.
         Box(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
         }
-        return
-    }
-
-    val startDestination = if (authState.isAuthenticated) Screen.Main.createRoute(false) else Screen.Auth.route
-
-    NavHost(
-        navController = navController,
-        startDestination = startDestination
-    ) {
-        composable(Screen.Auth.route) {
-            AuthScreen(
-                onLoginSuccess = { showSyncError ->
-                    // Navigation is handled by the LaunchedEffect above, this is a fallback.
-                    if (navController.currentDestination?.route != Screen.Main.route) {
+    } else {
+        NavHost(
+            navController = navController,
+            startDestination = startRoute
+        ) {
+            composable(Screen.Auth.route) {
+                AuthScreen(
+                    onLoginSuccess = { showSyncError ->
+                        // Navigate to the main graph, clearing the auth backstack.
                         navController.navigate(Screen.Main.createRoute(showSyncError)) {
-                           popUpTo(Screen.Auth.route) { inclusive = true }
+                            popUpTo(Screen.Auth.route) { inclusive = true }
                         }
                     }
-                }
-            )
-        }
-        composable(
-            route = Screen.Main.route,
-            arguments = listOf(navArgument("showSyncError") { type = NavType.BoolType })
-        ) { backStackEntry ->
-            val showSyncError = backStackEntry.arguments?.getBoolean("showSyncError") ?: false
-            MainScreenContainer(
-                showSyncError = showSyncError,
-                onLogout = {
-                    if (navController.currentDestination?.route != Screen.Auth.route) {
-                        navController.navigate(Screen.Auth.route) { popUpTo(0) { inclusive = true } }
+                )
+            }
+            composable(
+                route = Screen.Main.route,
+                arguments = listOf(navArgument("showSyncError") { type = NavType.BoolType })
+            ) { backStackEntry ->
+                val showSyncError = backStackEntry.arguments?.getBoolean("showSyncError") ?: false
+                MainScreenContainer(
+                    showSyncError = showSyncError,
+                    onLogout = {
+                        // After logout, the sessionStatus will change, and we navigate back to auth.
+                        navController.navigate(Screen.Auth.route) {
+                            popUpTo(Screen.Main.route) { inclusive = true }
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -111,21 +93,29 @@ private fun MainScreenContainer(showSyncError: Boolean, onLogout: () -> Unit) {
     val mainNavController = rememberNavController()
     val navBackStackEntry by mainNavController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-
     val snackbarHostState = remember { SnackbarHostState() }
 
     val showBottomBarAndFab = currentDestination?.route in bottomNavItems.map { it.route }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { if (showBottomBarAndFab) AppBottomBar(mainNavController, currentDestination) },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = showBottomBarAndFab,
+                enter = slideInVertically(animationSpec = tween(200)) { it },
+                exit = slideOutVertically(animationSpec = tween(200)) { it }
+            ) {
+                AppBottomBar(mainNavController, currentDestination)
+            }
+        },
         floatingActionButton = {
             if (showBottomBarAndFab) {
-                 FloatingActionButton(
+                FloatingActionButton(
                     onClick = { mainNavController.navigate(Screen.AddInvoice.route) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = CircleShape
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
                 ) {
                     Icon(Icons.Default.Add, "Add Invoice")
                 }
@@ -136,7 +126,6 @@ private fun MainScreenContainer(showSyncError: Boolean, onLogout: () -> Unit) {
         MainAppNavHost(mainNavController, padding, onLogout, showSyncError, snackbarHostState)
     }
 }
-
 
 @Composable
 private fun AppBottomBar(navController: NavHostController, currentDestination: NavDestination?) {
@@ -174,8 +163,6 @@ private fun MainAppNavHost(
     showSyncError: Boolean,
     snackbarHostState: SnackbarHostState
 ) {
-    val slideSpec = tween<IntOffset>(350)
-    val fadeSpec = tween<Float>(350)
     NavHost(
         navController = navController,
         startDestination = Screen.Dashboard.route,
@@ -183,9 +170,11 @@ private fun MainAppNavHost(
     ) {
         composable(
             Screen.Dashboard.route,
-            enterTransition = { fadeIn(tween(200)) },
-            exitTransition = { fadeOut(tween(200)) }
-            ) {
+            enterTransition = { fadeIn(tween(300)) },
+            exitTransition = { fadeOut(tween(300)) },
+            popEnterTransition = { fadeIn(tween(300)) },
+            popExitTransition = { fadeOut(tween(300)) }
+        ) {
             DashboardScreen(
                 onNavigateToInvoiceDetail = { navController.navigate(Screen.InvoiceDetail.createRoute(it)) },
                 onLogout = onLogout,
@@ -195,44 +184,44 @@ private fun MainAppNavHost(
         }
         composable(
             Screen.Customers.route,
-            enterTransition = { fadeIn(tween(200)) },
-            exitTransition = { fadeOut(tween(200)) }
-            ) {
+            enterTransition = { fadeIn(tween(300)) },
+            exitTransition = { fadeOut(tween(300)) },
+            popEnterTransition = { fadeIn(tween(300)) },
+            popExitTransition = { fadeOut(tween(300)) }
+        ) {
             CustomerListScreen(
                 onNavigateToCustomerDetail = { navController.navigate(Screen.CustomerDetail.createRoute(it)) },
                 snackbarHostState = snackbarHostState
             )
         }
 
-        // --- Detail and Creation Screens ---
-        val commonEnter: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
-            { slideInHorizontally(animationSpec = slideSpec) { it } + fadeIn(fadeSpec) }
-        val commonExit: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
-            { slideOutHorizontally(animationSpec = slideSpec) { -it } + fadeOut(fadeSpec) }
-        val commonPopEnter: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition) =
-            { slideInHorizontally(animationSpec = slideSpec) { -it } + fadeIn(fadeSpec) }
-        val commonPopExit: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition) =
-            { slideOutHorizontally(animationSpec = slideSpec) { it } + fadeOut(fadeSpec) }
-
-
         composable(
             Screen.AddInvoice.route,
             enterTransition = { slideInVertically(animationSpec = tween(400)) { it } + fadeIn() },
-            exitTransition = { slideOutVertically(animationSpec = tween(400)) { it } + fadeOut() },
+            exitTransition = { fadeOut(animationSpec = tween(200)) },
+            popEnterTransition = { slideInVertically(animationSpec = tween(400)) { -it } + fadeIn() },
+            popExitTransition = { slideOutVertically(animationSpec = tween(400)) { it } + fadeOut() },
         ) {
             InvoiceCreationScreen(onNavigateBack = { navController.popBackStack() })
         }
-
         composable(
-            Screen.InvoiceDetail.route, arguments = listOf(navArgument("invoiceId") { type = NavType.StringType }),
-            enterTransition = commonEnter, exitTransition = commonExit, popEnterTransition = commonPopEnter, popExitTransition = commonPopExit
+            Screen.InvoiceDetail.route, 
+            arguments = listOf(navArgument("invoiceId") { type = NavType.StringType }),
+            enterTransition = { slideInHorizontally(animationSpec = tween(350)) { it } },
+            exitTransition = { slideOutHorizontally(animationSpec = tween(350)) { -it } },
+            popEnterTransition = { slideInHorizontally(animationSpec = tween(350)) { -it } },
+            popExitTransition = { slideOutHorizontally(animationSpec = tween(350)) { it } }
         ) {
             val id = it.arguments?.getString("invoiceId") ?: ""
             InvoiceDetailScreen(invoiceId = id, onNavigateBack = { navController.popBackStack() })
         }
         composable(
-            Screen.CustomerDetail.route, arguments = listOf(navArgument("customerId") { type = NavType.StringType }),
-            enterTransition = commonEnter, exitTransition = commonExit, popEnterTransition = commonPopEnter, popExitTransition = commonPopExit
+            Screen.CustomerDetail.route, 
+            arguments = listOf(navArgument("customerId") { type = NavType.StringType }),
+            enterTransition = { slideInHorizontally(animationSpec = tween(350)) { it } },
+            exitTransition = { slideOutHorizontally(animationSpec = tween(350)) { -it } },
+            popEnterTransition = { slideInHorizontally(animationSpec = tween(350)) { -it } },
+            popExitTransition = { slideOutHorizontally(animationSpec = tween(350)) { it } }
         ) {
             val id = it.arguments?.getString("customerId") ?: ""
             CustomerDetailScreen(

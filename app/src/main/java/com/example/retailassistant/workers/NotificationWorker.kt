@@ -36,15 +36,16 @@ class NotificationWorker(
 
     override suspend fun doWork(): Result {
         // Only run the worker if a user is logged in.
-        if (supabase.auth.currentUserOrNull() == null) {
+        val userId = supabase.auth.currentUserOrNull()?.id
+        if (userId == null) {
             Log.i(TAG, "No user logged in. Skipping work.")
             return Result.success() // Not an error, just nothing to do.
         }
 
         return try {
             // First, sync data to ensure we are checking against the latest information.
-            repository.syncAllUserData().getOrThrow()
-            checkOverdueInvoices()
+            repository.syncAllUserData(userId).getOrThrow()
+            checkOverdueInvoices(userId)
             Log.i(TAG, "Work finished successfully.")
             Result.success()
         } catch (e: Exception) {
@@ -55,8 +56,8 @@ class NotificationWorker(
         }
     }
 
-    private suspend fun checkOverdueInvoices() {
-        val overdueInvoices = repository.getInvoicesStream().first().filter { it.isOverdue }
+    private suspend fun checkOverdueInvoices(userId: String) {
+        val overdueInvoices = repository.getInvoicesStream(userId).first().filter { it.isOverdue }
         if (overdueInvoices.isNotEmpty()) {
             showOverdueNotification(overdueInvoices.size)
         } else {

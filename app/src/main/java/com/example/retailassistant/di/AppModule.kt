@@ -15,7 +15,7 @@ import com.example.retailassistant.features.invoices.InvoiceCreationViewModel
 import com.example.retailassistant.features.invoices.InvoiceDetailViewModel
 import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidApplication
-import org.koin.androidx.viewmodel.dsl.viewModel
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
@@ -23,8 +23,8 @@ import org.koin.dsl.module
  * instances of databases, repositories, clients, and ViewModels.
  */
 val appModule = module {
-    // --- SINGLETONS (Data & Core Layers) ---
 
+    // --- SINGLETONS (Data & Core Layers) ---
     // Provides a single, application-wide instance of the Supabase client.
     single { createSupabaseClient() }
 
@@ -36,7 +36,7 @@ val appModule = module {
     single {
         Room.databaseBuilder(androidApplication(), AppDatabase::class.java, "retail_assistant.db")
             // In a real production app, migrations should be handled properly.
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(false)
             .build()
     }
 
@@ -54,11 +54,11 @@ val appModule = module {
     // ViewModels are provided with their dependencies injected by Koin.
     // The `viewModel` factory ensures they are tied to the lifecycle of the Composable.
     viewModel { AuthViewModel(get(), get()) }
-    viewModel { DashboardViewModel(get()) }
-    viewModel { CustomerListViewModel(get()) }
-    viewModel { InvoiceCreationViewModel(get(), get(), get()) }
+    viewModel { DashboardViewModel(get(), get()) }
+    viewModel { CustomerListViewModel(get(), get()) }
+    viewModel { InvoiceCreationViewModel(get(), get(), get(), get(), androidApplication()) }
 
     // ViewModels that require runtime parameters (like an ID) use Koin's parameter injection.
-    viewModel { params -> InvoiceDetailViewModel(invoiceId = params.get(), repository = get()) }
-    viewModel { params -> CustomerDetailViewModel(customerId = params.get(), repository = get()) }
+    viewModel { params -> InvoiceDetailViewModel(invoiceId = params.get(), repository = get(), supabase = get()) }
+    viewModel { params -> CustomerDetailViewModel(customerId = params.get(), repository = get(), supabase = get()) }
 }

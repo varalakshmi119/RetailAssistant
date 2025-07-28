@@ -1,10 +1,8 @@
 package com.example.retailassistant.features.customers
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -14,82 +12,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
-import com.example.retailassistant.core.MviViewModel
-import com.example.retailassistant.core.UiAction
-import com.example.retailassistant.core.UiEvent
-import com.example.retailassistant.core.UiState
 import com.example.retailassistant.core.Utils.formatCurrency
 import com.example.retailassistant.data.db.Customer
-import com.example.retailassistant.data.db.Invoice
-import com.example.retailassistant.data.db.InvoiceStatus
-import com.example.retailassistant.data.repository.RetailRepository
 import com.example.retailassistant.ui.components.*
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import com.example.retailassistant.ui.theme.AppGradients
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+import java.time.format.DateTimeFormatter
 
-// --- MVI Definitions ---
-data class CustomerDetailState(
-    val customer: Customer? = null,
-    val invoices: List<Invoice> = emptyList(),
-    val isLoading: Boolean = true,
-    val totalBilled: Double = 0.0,
-    val totalOutstanding: Double = 0.0,
-) : UiState
-
-sealed interface CustomerDetailAction : UiAction {
-    data class DataLoaded(val customer: Customer?, val invoices: List<Invoice>) : CustomerDetailAction
-}
-
-interface CustomerDetailEvent : UiEvent // No events needed for this screen
-
-// --- ViewModel ---
-class CustomerDetailViewModel(
-    customerId: String,
-    repository: RetailRepository
-) : MviViewModel<CustomerDetailState, CustomerDetailAction, CustomerDetailEvent>() {
-
-    init {
-        repository.getCustomerById(customerId)
-            .combine(repository.getCustomerInvoicesStream(customerId)) { customer, invoices ->
-                CustomerDetailAction.DataLoaded(customer, invoices)
-            }
-            .onEach(::sendAction)
-            .launchIn(viewModelScope)
-    }
-
-    override fun createInitialState(): CustomerDetailState = CustomerDetailState()
-
-    override fun handleAction(action: CustomerDetailAction) {
-        when(action) {
-            is CustomerDetailAction.DataLoaded -> {
-                val (customer, customerInvoices) = action
-                val totalBilled = customerInvoices.sumOf { it.totalAmount }
-                val totalOutstanding = customerInvoices
-                    .filter { it.status != InvoiceStatus.PAID }
-                    .sumOf { it.balanceDue }
-                setState {
-                    copy(
-                        customer = customer,
-                        invoices = customerInvoices.sortedByDescending { it.createdAt },
-                        totalBilled = totalBilled,
-                        totalOutstanding = totalOutstanding,
-                        isLoading = false
-                    )
-                }
-            }
-        }
-    }
-}
-
-// --- Screen ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerDetailScreen(
@@ -108,18 +41,21 @@ fun CustomerDetailScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                )
             )
         }
     ) { padding ->
         if (state.isLoading) {
-            // In a real app, a dedicated shimmer for this screen would be even better.
             ShimmeringCustomerList(modifier = Modifier.padding(padding))
         } else if (state.customer == null) {
             EmptyState(
                 title = "Customer Not Found",
                 subtitle = "The requested customer could not be found.",
-                icon = Icons.Default.People,
+                icon = Icons.Default.PeopleOutline,
                 modifier = Modifier.padding(padding)
             )
         } else {
@@ -129,6 +65,7 @@ fun CustomerDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item { CustomerDetailHeader(state.customer!!) }
+
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         EnhancedStatCard(
@@ -140,18 +77,21 @@ fun CustomerDetailScreen(
                         EnhancedStatCard(
                             label = "Outstanding",
                             value = formatCurrency(state.totalOutstanding),
-                            icon = Icons.Default.Warning,
+                            icon = Icons.Default.HourglassTop,
                             modifier = Modifier.weight(1f),
-                            gradient = if (state.totalOutstanding > 0) com.example.retailassistant.ui.theme.AppGradients.Error else com.example.retailassistant.ui.theme.AppGradients.Secondary
+                            gradient = if (state.totalOutstanding > 0) AppGradients.Warning else AppGradients.Success
                         )
                     }
                 }
+
                 item {
                     Text(
                         "Invoices (${state.invoices.size})",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
+
                 if (state.invoices.isEmpty()) {
                     item {
                         EmptyState(
@@ -162,9 +102,11 @@ fun CustomerDetailScreen(
                     }
                 } else {
                     items(state.invoices, key = { it.id }) { invoice ->
+                        val friendlyDueDate = invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
                         InvoiceCard(
                             invoice = invoice,
-                            customer = state.customer, // pass the non-null customer
+                            customerName = state.customer?.name ?: "Unknown",
+                            friendlyDueDate = friendlyDueDate,
                             onClick = { onNavigateToInvoiceDetail(invoice.id) }
                         )
                     }
@@ -193,10 +135,10 @@ private fun CustomerDetailHeader(customer: Customer) {
                 )
             }
             customer.phone?.takeIf { it.isNotBlank() }?.let { phone ->
-                InfoRow(icon = Icons.Default.Phone, text = phone)
+                InfoRow(icon = Icons.Default.Phone, text = phone, iconContentDescription = "Phone")
             }
             customer.email?.takeIf { it.isNotBlank() }?.let { email ->
-                InfoRow(icon = Icons.Default.Email, text = email)
+                InfoRow(icon = Icons.Default.Email, text = email, iconContentDescription = "Email")
             }
         }
     }

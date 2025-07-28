@@ -10,71 +10,57 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Enhanced professional and modern color scheme with better contrast and accessibility
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF82B1FF), // Lighter blue for better contrast on dark background
-    onPrimary = Color(0xFF002245),
-    primaryContainer = Color(0xFF004A97),
-    onPrimaryContainer = Color(0xFFD4E3FF),
-
-    secondary = Color(0xFF81C784), // Lighter green
-    onSecondary = Color(0xFF003913),
-    secondaryContainer = Color(0xFF2E7D32),
-    onSecondaryContainer = Color(0xFFC8E6C9),
-
-    tertiary = Color(0xFFFFB74D), // Lighter orange
-    onTertiary = Color(0xFF452700),
-    tertiaryContainer = Color(0xFF6B4F00),
-    onTertiaryContainer = Color(0xFFFFE0B2),
-
-    error = Color(0xFFFF8A80), // Lighter red
-    onError = Color(0xFF410002),
-    errorContainer = Color(0xFFC62828),
+    primary = Color(0xFF50E3C2), // Teal
+    onPrimary = Color(0xFF00382E),
+    primaryContainer = Color(0xFF005143),
+    onPrimaryContainer = Color(0xFF72FDE0),
+    secondary = Color(0xFF8BC6EC), // Light Blue
+    onSecondary = Color(0xFF00344B),
+    secondaryContainer = Color(0xFF004C6B),
+    onSecondaryContainer = Color(0xFFC8E6FF),
+    tertiary = Color(0xFF96DEDA), // Aqua
+    onTertiary = Color(0xFF003739),
+    tertiaryContainer = Color(0xFF004F52),
+    onTertiaryContainer = Color(0xFFB1F7F9),
+    error = Color(0xFFF5A623), // Orange
+    onError = Color(0xFF452700),
+    errorContainer = Color(0xFFD0021B),
     onErrorContainer = Color(0xFFFFCDD2),
-
-    background = Color(0xFF121212),
-    onBackground = Color(0xFFE8E8E8),
-    surface = Color(0xFF1E1E1E), // Slightly elevated surface
-    onSurface = Color(0xFFE8E8E8),
-    surfaceVariant = Color(0xFF2D2D2D), // For cards and text fields
-    onSurfaceVariant = Color(0xFFC8C8C8),
-    outline = Color(0xFF909090),
-    surfaceContainer = Color(0xFF212121),
-    surfaceContainerHigh = Color(0xFF292929)
+    background = Color(0xFF1A1C1E),
+    onBackground = Color(0xFFE2E2E6),
+    surface = Color(0xFF1A1C1E),
+    onSurface = Color(0xFFE2E2E6),
+    surfaceVariant = Color(0xFF42474E),
+    onSurfaceVariant = Color(0xFFC2C7CE),
+    outline = Color(0xFF8C9199)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF1967D2),
+    primary = Color(0xFF006A59), // Darker Teal for contrast
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD4E3FF),
-    onPrimaryContainer = Color(0xFF001D36),
-
-    secondary = Color(0xFF2E7D32),
+    primaryContainer = Color(0xFF72FDE0),
+    onPrimaryContainer = Color(0xFF00201A),
+    secondary = Color(0xFF006492), // Darker Blue
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFC8E6C9),
-    onSecondaryContainer = Color(0xFF00220A),
-
-    tertiary = Color(0xFFF57C00),
+    secondaryContainer = Color(0xFFC8E6FF),
+    onSecondaryContainer = Color(0xFF001E2F),
+    tertiary = Color(0xFF00696D),
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFFE0B2),
-    onTertiaryContainer = Color(0xFF271A00),
-
-    error = Color(0xFFD32F2F),
+    tertiaryContainer = Color(0xFFB1F7F9),
+    onTertiaryContainer = Color(0xFF002021),
+    error = Color(0xFFD0021B), // Strong Red
     onError = Color.White,
-    errorContainer = Color(0xFFFFCDD2),
+    errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-
-    background = Color(0xFFFAFAFA),
-    onBackground = Color(0xFF1C1C1E),
+    background = Color(0xFFF8F9FF), // Off-white
+    onBackground = Color(0xFF1A1C1E),
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1C1C1E),
-    surfaceVariant = Color(0xFFF0F0F0), // Lighter variant for cards/inputs
-    onSurfaceVariant = Color(0xFF454547),
-    outline = Color(0xFF757577),
-    surfaceContainer = Color(0xFFF5F5F5),
-    surfaceContainerHigh = Color(0xFFECECEC)
+    onSurface = Color(0xFF1A1C1E),
+    surfaceVariant = Color(0xFFDEE3EB),
+    onSurfaceVariant = Color(0xFF42474E),
+    outline = Color(0xFF72787E)
 )
-
 @Composable
 fun RetailAssistantTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -82,14 +68,12 @@ fun RetailAssistantTheme(
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val view = LocalView.current
-
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.setDecorFitsSystemWindows(window, false)
-
             val insetsController = WindowCompat.getInsetsController(window, view)
             insetsController.isAppearanceLightStatusBars = !darkTheme
             insetsController.isAppearanceLightNavigationBars = !darkTheme

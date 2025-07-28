@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
  * Using `Flow` makes the data streams reactive, automatically updating the UI
  * when the underlying data changes. This is the cornerstone of the local-first approach.
  */
-
 @Dao
 interface CustomerDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -37,6 +36,10 @@ interface InvoiceDao {
 
     @Query("SELECT * FROM invoices WHERE id = :invoiceId")
     fun getInvoiceById(invoiceId: String): Flow<Invoice?>
+
+    // This avoids loading all user invoices into memory and filtering them.
+    @Query("SELECT * FROM invoices WHERE customerId = :customerId AND userId = :userId ORDER BY createdAt DESC")
+    fun getInvoicesStreamForCustomer(customerId: String, userId: String): Flow<List<Invoice>>
 
     @Query("DELETE FROM invoices WHERE userId = :userId")
     suspend fun clearUserInvoices(userId: String)

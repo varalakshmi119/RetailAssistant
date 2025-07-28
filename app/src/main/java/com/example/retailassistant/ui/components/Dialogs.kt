@@ -9,12 +9,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun AddPaymentDialog(onDismiss: () -> Unit, onConfirm: (Double, String?) -> Unit, isProcessing: Boolean) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    val isAmountValid = (amount.toDoubleOrNull() ?: 0.0) > 0.0
+    var isAmountValid by remember { mutableStateOf(false) }
+
+    // Validate amount on change
+    LaunchedEffect(amount) {
+        isAmountValid = (amount.toDoubleOrNull() ?: 0.0) > 0.0
+    }
+
     AlertDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Record a Payment") },
@@ -22,7 +30,12 @@ fun AddPaymentDialog(onDismiss: () -> Unit, onConfirm: (Double, String?) -> Unit
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 LabeledTextField(
                     value = amount,
-                    onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } },
+                    onValueChange = { input ->
+                        // Allow only one decimal point
+                        amount = input.filter { it.isDigit() || it == '.' }.let {
+                            if (it.count { c -> c == '.' } > 1) it.dropLast(1) else it
+                        }
+                    },
                     label = "Amount Paid",
                     prefix = "₹",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -32,7 +45,10 @@ fun AddPaymentDialog(onDismiss: () -> Unit, onConfirm: (Double, String?) -> Unit
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(amount.toDouble(), note.takeIf { it.isNotBlank() }) }, enabled = !isProcessing && isAmountValid) {
+            Button(
+                onClick = { onConfirm(amount.toDouble(), note.takeIf { it.isNotBlank() }) },
+                enabled = !isProcessing && isAmountValid
+            ) {
                 if (isProcessing) CircularProgressIndicator(Modifier.size(20.dp)) else Text("Confirm")
             }
         },
@@ -52,7 +68,8 @@ fun AddNoteDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit, isProcessi
                 onValueChange = { note = it },
                 label = "Note",
                 placeholder = "e.g., Customer will pay next week.",
-                singleLine = false
+                singleLine = false,
+                isError = note.isBlank() && note.isNotEmpty() // Show error if touched but blank
             )
         },
         confirmButton = {
@@ -65,10 +82,15 @@ fun AddNoteDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit, isProcessi
 }
 
 @Composable
-fun PostponeDueDateDialog(currentDueDate: String, onDismiss: () -> Unit, onConfirm: (String, String?) -> Unit, isProcessing: Boolean) {
-    var newDueDate by remember { mutableStateOf("") }
+fun PostponeDueDateDialog(
+    currentDueDate: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, String?) -> Unit,
+    isProcessing: Boolean
+) {
+    var newDueDate by remember { mutableStateOf(currentDueDate.plusDays(1)) }
     var reason by remember { mutableStateOf("") }
-    val isDateSelected = newDueDate.isNotBlank() // Simplified validation
+    val isDateValid = newDueDate.isAfter(currentDueDate)
 
     AlertDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
@@ -76,19 +98,16 @@ fun PostponeDueDateDialog(currentDueDate: String, onDismiss: () -> Unit, onConfi
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    "Current due date: $currentDueDate",
+                    "Current due date: ${currentDueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // --- MODIFICATION START ---
-                // Replaced LabeledTextField with the superior EnhancedDatePickerField
                 EnhancedDatePickerField(
                     value = newDueDate,
                     onValueChange = { newDueDate = it },
                     label = "New Due Date",
                     enabled = !isProcessing
                 )
-                // --- MODIFICATION END ---
                 LabeledTextField(
                     value = reason,
                     onValueChange = { reason = it },
@@ -100,10 +119,9 @@ fun PostponeDueDateDialog(currentDueDate: String, onDismiss: () -> Unit, onConfi
             }
         },
         confirmButton = {
-            // Updated enabled logic to use the new validation
             Button(
                 onClick = { onConfirm(newDueDate, reason.takeIf { it.isNotBlank() }) },
-                enabled = !isProcessing && isDateSelected
+                enabled = !isProcessing && isDateValid
             ) {
                 if (isProcessing) CircularProgressIndicator(Modifier.size(20.dp)) else Text("Postpone")
             }
