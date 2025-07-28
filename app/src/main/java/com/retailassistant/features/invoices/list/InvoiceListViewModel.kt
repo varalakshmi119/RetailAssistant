@@ -39,8 +39,9 @@ sealed interface InvoiceListAction : UiAction {
     data class DataLoaded(val invoices: List<Invoice>, val customers: List<Customer>) : InvoiceListAction
 }
 
-interface InvoiceListEvent : UiEvent
-
+sealed interface InvoiceListEvent : UiEvent {
+    data class ShowError(val message: String) : InvoiceListEvent
+}
 class InvoiceListViewModel(
     private val repository: RetailRepository,
     private val supabase: SupabaseClient

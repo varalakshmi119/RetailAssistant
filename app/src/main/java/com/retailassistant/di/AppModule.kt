@@ -1,5 +1,4 @@
 package com.retailassistant.di
-
 import androidx.room.Room
 import com.retailassistant.core.ImageHandler
 import com.retailassistant.data.db.AppDatabase
@@ -18,9 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
-
 val appModule = module {
-
     // --- SINGLETONS (Data & Core Layers) ---
     single { createSupabaseClient() }
     single { GeminiClient() }
@@ -31,12 +28,10 @@ val appModule = module {
             .fallbackToDestructiveMigration(false) // Avoids data loss on schema mismatch
             .build()
     }
-
     // DAOs
     single { get<AppDatabase>().customerDao() }
     single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().interactionLogDao() }
-
     // --- VIEWMODELS ---
     viewModel { AuthViewModel(get(), get()) }
     viewModel { DashboardViewModel(get(), get()) }
@@ -44,5 +39,12 @@ val appModule = module {
     viewModel { CustomerListViewModel(get(), get()) }
     viewModel { params -> InvoiceCreationViewModel(get(), get(), get(), get(), params.get()) }
     viewModel { params -> InvoiceDetailViewModel(invoiceId = params.get(), repository = get()) }
-    viewModel { params -> CustomerDetailViewModel(customerId = params.get(), repository = get()) }
+    // MODIFIED: Inject SupabaseClient to get the current user ID
+    viewModel { params ->
+        CustomerDetailViewModel(
+            customerId = params.get(),
+            repository = get(),
+            supabase = get() // Added dependency
+        )
+    }
 }

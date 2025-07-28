@@ -1,5 +1,4 @@
 package com.retailassistant.features.customers
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,8 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,7 +23,6 @@ import com.retailassistant.ui.components.specific.InvoiceCard
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.time.format.DateTimeFormatter
-
 @Composable
 fun CustomerDetailScreen(
     customerId: String,
@@ -34,7 +31,26 @@ fun CustomerDetailScreen(
     viewModel: CustomerDetailViewModel = koinViewModel { parametersOf(customerId) }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-
+    val snackbarHostState = remember { SnackbarHostState() }
+    // MODIFIED: Handle new events
+    LaunchedEffect(viewModel.event) {
+        viewModel.event.collect { event ->
+            when (event) {
+                is CustomerDetailEvent.NavigateBack -> onNavigateBack()
+                is CustomerDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
+            }
+        }
+    }
+    // MODIFIED: Handle dialogs
+    if (state.activeDialog == CustomerDetailDialog.ConfirmDeleteCustomer) {
+        ConfirmDeleteDialog(
+            title = "Delete Customer?",
+            text = "This will also delete all of their invoices. This action cannot be undone.",
+            onDismiss = { viewModel.sendAction(CustomerDetailAction.ShowDialog(null)) },
+            onConfirm = { viewModel.sendAction(CustomerDetailAction.DeleteCustomer) },
+            isProcessing = state.isProcessingAction
+        )
+    }
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -43,13 +59,22 @@ fun CustomerDetailScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
+                },
+                // MODIFIED: Added delete action
+                actions = {
+                    if (state.customer != null) {
+                        IconButton(onClick = { viewModel.sendAction(CustomerDetailAction.ShowDialog(CustomerDetailDialog.ConfirmDeleteCustomer)) }) {
+                            Icon(Icons.Default.DeleteOutline, "Delete Customer", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         when {
             state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
-            state.customer == null -> EmptyState("Not Found", "This customer could not be found.", Icons.Default.PeopleOutline, Modifier.padding(padding))
+            state.customer == null -> EmptyState("Not Found", "This customer may have been deleted.", Icons.Default.PeopleOutline, Modifier.padding(padding))
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
@@ -87,7 +112,6 @@ fun CustomerDetailScreen(
         }
     }
 }
-
 @Composable
 private fun CustomerDetailHeader(state: CustomerDetailState) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -106,7 +130,6 @@ private fun CustomerDetailHeader(state: CustomerDetailState) {
         }
     }
 }
-
 @Composable
 private fun StatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, valueColor: Color = LocalContentColor.current) {
     ElevatedCard(modifier = modifier) {

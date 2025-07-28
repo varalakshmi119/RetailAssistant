@@ -1,24 +1,39 @@
 package com.retailassistant.features.customers
-
 import android.content.Context
 import android.content.Intent
-import androidx.core.net.toUri
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PeopleOutline
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.retailassistant.ui.components.common.*
+import com.retailassistant.ui.components.common.CenteredTopAppBar
+import com.retailassistant.ui.components.common.EmptyState
+import com.retailassistant.ui.components.common.SearchBar
+import com.retailassistant.ui.components.common.ShimmeringList
 import com.retailassistant.ui.components.specific.CustomerCard
 import org.koin.androidx.compose.koinViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerListScreen(
     onNavigateToCustomer: (String) -> Unit,
@@ -43,12 +58,17 @@ fun CustomerListScreen(
             CenteredTopAppBar(
                 title = "Customers",
                 actions = {
-                    if (state.isRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    } else {
-                        IconButton(onClick = { viewModel.sendAction(CustomerListAction.RefreshData) }) {
-                            Icon(Icons.Default.Refresh, "Refresh")
-                        }
+                    IconButton(
+                        onClick = { viewModel.sendAction(CustomerListAction.RefreshData) },
+                        enabled = !state.isRefreshing
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            modifier = if (state.isRefreshing) {
+                                Modifier.size(20.dp)
+                            } else Modifier
+                        )
                     }
                 }
             )
@@ -61,29 +81,36 @@ fun CustomerListScreen(
                 placeholder = "Search by name, phone, or email...",
                 modifier = Modifier.padding(16.dp)
             )
-            if (state.isLoading) {
-                ShimmeringList()
-            } else if (state.filteredCustomers.isEmpty()) {
-                EmptyState(
-                    title = if (state.searchQuery.isNotEmpty()) "No customers found" else "No customers yet",
-                    subtitle = "Your customers will appear here.",
-                    icon = Icons.Default.PeopleOutline
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(state.filteredCustomers, key = { it.customer.id }) { customerWithStats ->
-                        CustomerCard(
-                            customer = customerWithStats.customer,
-                            stats = customerWithStats.stats,
-                            onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
-                            onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
-                            onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
-                            modifier = Modifier.animateItem()
-                        )
+
+            PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh = { viewModel.sendAction(CustomerListAction.RefreshData) },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (state.isLoading && state.filteredCustomers.isEmpty()) {
+                    ShimmeringList()
+                } else if (state.filteredCustomers.isEmpty()) {
+                    EmptyState(
+                        title = if (state.searchQuery.isNotEmpty()) "No customers found" else "No customers yet",
+                        subtitle = "Your customers will appear here.",
+                        icon = Icons.Default.PeopleOutline
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.filteredCustomers, key = { it.customer.id }) { customerWithStats ->
+                            CustomerCard(
+                                customer = customerWithStats.customer,
+                                stats = customerWithStats.stats,
+                                onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
+                                onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
+                                onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }

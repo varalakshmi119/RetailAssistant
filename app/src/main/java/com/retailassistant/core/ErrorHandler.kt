@@ -1,10 +1,8 @@
 package com.retailassistant.core
-
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.RestException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
-
 /**
  * Centralized error handling utility for consistent user-friendly error messages.
  */
@@ -15,6 +13,9 @@ object ErrorHandler {
             is UnknownHostException -> "No internet connection. Please check your network."
             is HttpRequestException -> "Network request failed. Please check your connection."
             is RestException -> when {
+                // MODIFIED: Handle the unique name constraint from the database
+                throwable.message?.contains("duplicate key value violates unique constraint \"customers_user_id_name_key\"") == true ->
+                    "A customer with this name already exists. Please choose a different name."
                 throwable.message?.contains("duplicate key") == true -> "This record already exists."
                 throwable.message?.contains("foreign key") == true -> "Invalid reference. Please refresh and try again."
                 else -> throwable.message ?: "A database error occurred."
@@ -24,10 +25,8 @@ object ErrorHandler {
             else -> throwable.message ?: defaultMessage
         }
     }
-
     fun isNetworkError(throwable: Throwable): Boolean =
         throwable is SocketTimeoutException || throwable is UnknownHostException || throwable is HttpRequestException
-
     fun isAuthError(throwable: Throwable): Boolean =
         throwable is HttpRequestException && (throwable.message?.contains("401") == true || throwable.message?.contains("403") == true)
 }

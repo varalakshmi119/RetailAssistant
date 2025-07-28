@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.detail
-
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.animateContentSize
@@ -35,7 +34,6 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
 @Composable
 fun InvoiceDetailScreen(
     invoiceId: String,
@@ -46,18 +44,17 @@ fun InvoiceDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
                 is InvoiceDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
                 is InvoiceDetailEvent.MakePhoneCall -> makePhoneCall(context, event.phoneNumber)
+                // MODIFIED: Handle navigation
+                is InvoiceDetailEvent.NavigateBack -> onNavigateBack()
             }
         }
     }
-
     HandleDialogs(state = state, onAction = viewModel::sendAction)
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -66,6 +63,13 @@ fun InvoiceDetailScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
+                },
+                actions = {
+                    if (state.invoice != null) {
+                        IconButton(onClick = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.ConfirmDeleteInvoice)) }) {
+                            Icon(Icons.Default.DeleteOutline, "Delete Invoice", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             )
         },
@@ -73,7 +77,7 @@ fun InvoiceDetailScreen(
     ) { padding ->
         when {
             state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
-            state.invoice == null -> EmptyState("Not Found", "This invoice could not be loaded.", Icons.Default.Error, Modifier.padding(padding))
+            state.invoice == null -> EmptyState("Not Found", "This invoice may have been deleted.", Icons.Default.Error, Modifier.padding(padding))
             else -> {
                 val invoice = state.invoice!! // Assert non-null here, as we've already checked state.invoice == null
                 LazyColumn(
@@ -98,7 +102,8 @@ fun InvoiceDetailScreen(
                             onPostpone = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) }
                         )
                     }
-                    item { InvoiceImageCard(imageUrl = invoice.originalScanUrl) }
+                    // MODIFIED: Pass the loaded signed URL from the state
+                    item { InvoiceImageCard(imageUrl = state.imageUrl) }
                     if (state.logs.isNotEmpty()) {
                         item {
                             Text("Activity Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -112,7 +117,6 @@ fun InvoiceDetailScreen(
         }
     }
 }
-
 @Composable
 private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAction) -> Unit) {
     when (state.activeDialog) {
@@ -132,10 +136,17 @@ private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAct
             onConfirm = { newDueDate, reason -> onAction(InvoiceDetailAction.PostponeDueDate(newDueDate, reason)) },
             isProcessing = state.isProcessingAction
         )
+        // MODIFIED: Handle delete confirmation
+        ActiveDialog.ConfirmDeleteInvoice -> ConfirmDeleteDialog(
+            title = "Delete Invoice?",
+            text = "This action is permanent and cannot be undone.",
+            onDismiss = { onAction(InvoiceDetailAction.ShowDialog(null)) },
+            onConfirm = { onAction(InvoiceDetailAction.DeleteInvoice) },
+            isProcessing = state.isProcessingAction
+        )
         null -> {}
     }
 }
-
 @Composable
 private fun CustomerHeader(customerName: String, customerPhone: String?, onCall: () -> Unit, onNavigate: () -> Unit) {
     ElevatedCard(onClick = onNavigate) {
@@ -159,11 +170,9 @@ private fun CustomerHeader(customerName: String, customerPhone: String?, onCall:
         }
     }
 }
-
 @Composable
 private fun PaymentSummaryCard(invoice: Invoice) {
     val progress = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f
-    
     ElevatedCard {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Total Amount", style = MaterialTheme.typography.bodyLarge)
@@ -190,7 +199,6 @@ private fun PaymentSummaryCard(invoice: Invoice) {
         }
     }
 }
-
 @Composable
 private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit, onAddNote: () -> Unit, onPostpone: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -205,7 +213,6 @@ private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit
         }
     }
 }
-
 @Composable
 private fun InvoiceImageCard(imageUrl: String?) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -231,7 +238,6 @@ private fun InvoiceImageCard(imageUrl: String?) {
         )
     }
 }
-
 private fun makePhoneCall(context: Context, phoneNumber: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri()))

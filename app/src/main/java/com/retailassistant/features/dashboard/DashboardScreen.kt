@@ -1,5 +1,4 @@
 package com.retailassistant.features.dashboard
-
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,7 +22,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +56,7 @@ import com.retailassistant.ui.theme.GradientColors
 import org.koin.androidx.compose.koinViewModel
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToInvoice: (String) -> Unit,
@@ -98,12 +99,17 @@ fun DashboardScreen(
             CenteredTopAppBar(
                 title = "Dashboard",
                 actions = {
-                    if (state.isRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    } else {
-                        IconButton(onClick = { viewModel.sendAction(DashboardAction.RefreshData) }) {
-                            Icon(Icons.Default.Refresh, "Refresh")
-                        }
+                    IconButton(
+                        onClick = { viewModel.sendAction(DashboardAction.RefreshData) },
+                        enabled = !state.isRefreshing
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            modifier = if (state.isRefreshing) {
+                                Modifier.size(20.dp)
+                            } else Modifier
+                        )
                     }
                     IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, "Logout")
@@ -112,60 +118,55 @@ fun DashboardScreen(
             )
         }
     ) { padding ->
-        if (state.isLoading) {
-            ShimmeringList()
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item { DashboardHeader(userName = state.userName) }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        StatCard(
-                            label = "Total Unpaid",
-                            value = state.totalUnpaid,
-                            icon = Icons.Default.AccountBalanceWallet,
-                            gradient = AppGradients.Primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            label = "Overdue",
-                            value = state.overdueCount.toDouble(),
-                            formatter = { it.toInt().toString() },
-                            icon = Icons.Default.Warning,
-                            gradient = if (state.overdueCount > 0) AppGradients.Error else AppGradients.Success,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                item {
-                    Text(
-                        "Recent Invoices",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-                if (state.invoicesWithCustomers.isEmpty()) {
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = { viewModel.sendAction(DashboardAction.RefreshData) },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
+                ShimmeringList()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item { DashboardHeader(userName = state.userName) }
                     item {
-                        EmptyState(
-                            title = "No invoices yet",
-                            subtitle = "Tap the '+' button below to add your first one.",
-                            icon = Icons.AutoMirrored.Filled.ReceiptLong
+                        DashboardStats(
+                            totalUnpaid = state.totalUnpaid,
+                            overdueCount = state.overdueCount
                         )
                     }
-                } else {
-                    items(state.invoicesWithCustomers, key = { it.invoice.id }) { item ->
-                        val friendlyDueDate = item.invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-                        InvoiceCard(
-                            invoice = item.invoice,
-                            customerName = item.customer?.name ?: "Unknown",
-                            friendlyDueDate = friendlyDueDate,
-                            onClick = { onNavigateToInvoice(item.invoice.id) },
-                            modifier = Modifier.animateItem()
+                    item {
+                        Text(
+                            "Recent Invoices",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
+                    }
+                    if (state.invoicesWithCustomers.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = "No invoices yet",
+                                subtitle = "Tap the '+' button below to add your first one.",
+                                icon = Icons.AutoMirrored.Filled.ReceiptLong
+                            )
+                        }
+                    } else {
+                        items(state.invoicesWithCustomers, key = { it.invoice.id }) { item ->
+                            val friendlyDueDate = item.invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+                            InvoiceCard(
+                                invoice = item.invoice,
+                                customerName = item.customer?.name ?: "Unknown",
+                                friendlyDueDate = friendlyDueDate,
+                                onClick = { onNavigateToInvoice(item.invoice.id) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }
@@ -185,7 +186,8 @@ private fun DashboardHeader(userName: String?) {
             targetState = userName,
             transitionSpec = {
                 (slideInVertically { h -> h } + fadeIn()).togetherWith(slideOutVertically { h -> -h } + fadeOut())
-            }, label = "userName"
+            },
+            label = "userName"
         ) { name ->
             Text(
                 text = name ?: "User",
@@ -193,6 +195,30 @@ private fun DashboardHeader(userName: String?) {
                 fontWeight = FontWeight.Bold
             )
         }
+    }
+}
+
+@Composable
+private fun DashboardStats(
+    totalUnpaid: Double,
+    overdueCount: Int
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        StatCard(
+            label = "Total Unpaid",
+            value = totalUnpaid,
+            icon = Icons.Default.AccountBalanceWallet,
+            gradient = AppGradients.Primary,
+            modifier = Modifier.weight(1f)
+        )
+        StatCard(
+            label = "Overdue",
+            value = overdueCount.toDouble(),
+            formatter = { it.toInt().toString() },
+            icon = Icons.Default.Warning,
+            gradient = if (overdueCount > 0) AppGradients.Error else AppGradients.Success,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -214,7 +240,11 @@ private fun StatCard(
                 modifier = Modifier.size(28.dp),
                 tint = Color.White
             )
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.9f)
+            )
             AnimatedCounter(
                 targetValue = value,
                 formatter = formatter,
