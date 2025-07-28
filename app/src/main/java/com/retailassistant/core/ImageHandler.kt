@@ -17,53 +17,41 @@ class ImageHandler(private val context: Context) {
 
     private companion object {
         private const val TARGET_WIDTH = 1080
-        private const val DOCUMENT_COMPRESSION_QUALITY = 90 // Higher quality for text clarity.
+        private const val COMPRESSION_QUALITY = 90
+        private const val MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
     }
 
     suspend fun compressImageForUpload(imageUri: Uri): ByteArray? = withContext(Dispatchers.IO) {
         try {
-            // Validate URI accessibility first
-            val inputStream = context.contentResolver.openInputStream(imageUri)
-                ?: throw IOException("Cannot access image URI")
-            inputStream.close()
-
-            // First pass: Decode with inJustDecodeBounds=true to check dimensions without allocating memory.
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
             context.contentResolver.openInputStream(imageUri)?.use {
                 BitmapFactory.decodeStream(it, null, options)
             }
 
-            // Validate image dimensions
             if (options.outWidth <= 0 || options.outHeight <= 0) {
                 throw IOException("Invalid image dimensions")
             }
 
-            // Calculate the optimal `inSampleSize` to scale down the image.
             options.inSampleSize = calculateInSampleSize(options, TARGET_WIDTH)
-
-            // Second pass: Decode the bitmap with the calculated `inSampleSize`.
             options.inJustDecodeBounds = false
-            context.contentResolver.openInputStream(imageUri)?.use { inputStream ->
-                val bitmap = BitmapFactory.decodeStream(inputStream, null, options)
-                    ?: throw IOException("Failed to decode image")
-                
-                ByteArrayOutputStream().use { baos ->
-                    val success = bitmap.compress(Bitmap.CompressFormat.JPEG, DOCUMENT_COMPRESSION_QUALITY, baos)
-                    if (!success) {
-                        throw IOException("Failed to compress image")
-                    }
-                    val compressedBytes = baos.toByteArray()
-                    
-                    // Validate compressed size (max 10MB as per storage bucket limit)
-                    if (compressedBytes.size > 10 * 1024 * 1024) {
-                        throw IOException("Compressed image too large (${compressedBytes.size / 1024 / 1024}MB)")
-                    }
-                    
-                    compressedBytes
+
+            val bitmap = context.contentResolver.openInputStream(imageUri)?.use {
+                BitmapFactory.decodeStream(it, null, options)
+            } ?: throw IOException("Failed to decode image stream.")
+
+            ByteArrayOutputStream().use { baos ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, COMPRESSION_QUALITY, baos)
+                val compressedBytes = baos.toByteArray()
+                if (compressedBytes.size > MAX_FILE_SIZE_BYTES) {
+                    throw IOException("Compressed image is too large.")
                 }
+                compressedBytes
             }
         } catch (e: Exception) {
-            android.util.Log.e("ImageHandler", "Image compression failed", e)
+            // Log for debug builds, but return null for production
+            // android.util.Log.e("ImageHandler", "Image compression failed", e)
             null
         }
     }
@@ -74,8 +62,6 @@ class ImageHandler(private val context: Context) {
         if (height > reqWidth || width > reqWidth) {
             val halfHeight: Int = height / 2
             val halfWidth: Int = width / 2
-            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-            // height and width larger than the requested width.
             while ((halfHeight / inSampleSize) >= reqWidth && (halfWidth / inSampleSize) >= reqWidth) {
                 inSampleSize *= 2
             }

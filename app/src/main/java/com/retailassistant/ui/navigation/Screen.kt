@@ -7,29 +7,23 @@ import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * A sealed class representing all unique destinations in the app.
- * This provides compile-time safety for navigation routes.
+ * A sealed class representing all unique destinations in the app for type-safe navigation.
  */
 sealed class Screen(val route: String) {
     data object Auth : Screen("auth")
     data object Dashboard : Screen("dashboard")
     data object Invoices : Screen("invoices")
     data object Customers : Screen("customers")
-
     data object InvoiceCreation : Screen("invoice_creation")
 
     data object InvoiceDetail : Screen("invoice_detail/{invoiceId}") {
         fun createRoute(invoiceId: String) = "invoice_detail/$invoiceId"
     }
-
     data object CustomerDetail : Screen("customer_detail/{customerId}") {
         fun createRoute(customerId: String) = "customer_detail/$customerId"
     }
 }
 
-/**
- * Represents an item in the bottom navigation bar.
- */
 data class BottomNavItem(
     val screen: Screen,
     val title: String,

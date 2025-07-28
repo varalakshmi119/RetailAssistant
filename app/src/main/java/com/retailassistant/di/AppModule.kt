@@ -18,24 +18,24 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+
 val appModule = module {
+
     // --- SINGLETONS (Data & Core Layers) ---
     single { createSupabaseClient() }
     single { GeminiClient() }
     single { ImageHandler(androidApplication()) }
+    single<RetailRepository> { RetailRepositoryImpl(get(), get(), get(), get(), Dispatchers.IO) }
     single {
         Room.databaseBuilder(androidApplication(), AppDatabase::class.java, "retailassistant.db")
-            .fallbackToDestructiveMigration(false)
+            .fallbackToDestructiveMigration(false) // Avoids data loss on schema mismatch
             .build()
     }
+
     // DAOs
     single { get<AppDatabase>().customerDao() }
     single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().interactionLogDao() }
-    // Repository
-    single<RetailRepository> {
-        RetailRepositoryImpl(get(), get(), get(), get(), get(), Dispatchers.IO)
-    }
 
     // --- VIEWMODELS ---
     viewModel { AuthViewModel(get(), get()) }

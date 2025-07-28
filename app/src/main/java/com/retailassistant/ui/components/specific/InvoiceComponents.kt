@@ -30,11 +30,7 @@ fun InvoiceCard(
 ) {
     ElevatedCard(modifier = modifier.fillMaxWidth(), onClick = onClick) {
         Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
                         text = customerName,
@@ -47,23 +43,17 @@ fun InvoiceCard(
                 }
                 StatusChip(status = invoice.status, isOverdue = invoice.isOverdue)
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
+            Spacer(Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 AmountColumn(
                     label = if (invoice.balanceDue <= 0) "Fully Paid" else "Balance Due",
                     amount = if (invoice.balanceDue <= 0) invoice.totalAmount else invoice.balanceDue,
-                    amountColor = if (invoice.balanceDue <= 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
-                    isPrimary = false
+                    amountColor = if (invoice.balanceDue <= 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
                 )
                 AmountColumn(
                     label = "Total",
                     amount = invoice.totalAmount,
-                    amountColor = MaterialTheme.colorScheme.primary,
-                    isPrimary = true,
+                    amountColor = MaterialTheme.colorScheme.onSurface,
                     horizontalAlignment = Alignment.End
                 )
             }
@@ -72,13 +62,13 @@ fun InvoiceCard(
 }
 
 @Composable
-fun StatusChip(status: InvoiceStatus, isOverdue: Boolean, modifier: Modifier = Modifier) {
+private fun StatusChip(status: InvoiceStatus, isOverdue: Boolean, modifier: Modifier = Modifier) {
     val finalStatus = if (isOverdue && status != InvoiceStatus.PAID) InvoiceStatus.OVERDUE else status
     val (color, text) = when (finalStatus) {
-        InvoiceStatus.PAID -> Pair(MaterialTheme.colorScheme.tertiary, "Paid")
-        InvoiceStatus.OVERDUE -> Pair(MaterialTheme.colorScheme.error, "Overdue")
-        InvoiceStatus.PARTIALLY_PAID -> Pair(MaterialTheme.colorScheme.primary, "Partial")
-        InvoiceStatus.UNPAID -> Pair(MaterialTheme.colorScheme.onSurfaceVariant, "Unpaid")
+        InvoiceStatus.PAID -> MaterialTheme.colorScheme.tertiary to "Paid"
+        InvoiceStatus.OVERDUE -> MaterialTheme.colorScheme.error to "Overdue"
+        InvoiceStatus.PARTIALLY_PAID -> MaterialTheme.colorScheme.primary to "Partial"
+        InvoiceStatus.UNPAID -> MaterialTheme.colorScheme.onSurfaceVariant to "Unpaid"
     }
     Surface(
         modifier = modifier,
@@ -96,24 +86,18 @@ fun StatusChip(status: InvoiceStatus, isOverdue: Boolean, modifier: Modifier = M
 }
 
 @Composable
-fun AmountColumn(
+private fun AmountColumn(
     label: String,
     amount: Double,
     amountColor: Color,
-    isPrimary: Boolean,
     modifier: Modifier = Modifier,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start
 ) {
-    val amountStyle = if (isPrimary) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge
     Column(modifier = modifier, horizontalAlignment = horizontalAlignment) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = Utils.formatCurrency(amount),
-            style = amountStyle,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
             color = amountColor
         )
@@ -145,10 +129,30 @@ fun InfoChip(
 @Composable
 fun InteractionLogItem(log: InteractionLog, modifier: Modifier = Modifier) {
     Row(modifier = modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.Top) {
-        val (icon, title, valueText, valueColor) = when (log.type) {
-            InteractionType.PAYMENT -> Quad(Icons.Default.Payment, "Payment Received", "+${Utils.formatCurrency(log.value ?: 0.0)}", MaterialTheme.colorScheme.tertiary)
-            InteractionType.NOTE -> Quad(Icons.AutoMirrored.Filled.Comment, "Note Added", null, Color.Unspecified)
-            InteractionType.DUE_DATE_CHANGED -> Quad(Icons.Default.DateRange, "Due Date Changed", null, Color.Unspecified)
+        val icon: ImageVector
+        val title: String
+        val valueText: String?
+        val valueColor: Color
+
+        when (log.type) {
+            InteractionType.PAYMENT -> {
+                icon = Icons.Default.Payment
+                title = "Payment Received"
+                valueText = "+${Utils.formatCurrency(log.value ?: 0.0)}"
+                valueColor = MaterialTheme.colorScheme.tertiary
+            }
+            InteractionType.NOTE -> {
+                icon = Icons.AutoMirrored.Filled.Comment
+                title = "Note Added"
+                valueText = null
+                valueColor = Color.Unspecified
+            }
+            InteractionType.DUE_DATE_CHANGED -> {
+                icon = Icons.Default.DateRange
+                title = "Due Date Changed"
+                valueText = null
+                valueColor = Color.Unspecified
+            }
         }
         Icon(
             imageVector = icon,
@@ -164,8 +168,10 @@ fun InteractionLogItem(log: InteractionLog, modifier: Modifier = Modifier) {
                     Text(it, fontWeight = FontWeight.Bold, color = valueColor, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            log.notes?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            log.notes?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 text = Utils.formatTimestamp(log.createdAt),
@@ -175,5 +181,3 @@ fun InteractionLogItem(log: InteractionLog, modifier: Modifier = Modifier) {
         }
     }
 }
-// Private data class for tuple-like returns.
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

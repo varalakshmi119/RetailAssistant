@@ -58,6 +58,7 @@ class InvoiceListViewModel(
                     .catch { setState { copy(isLoading = false) } }
                     .collect { sendAction(it) }
             }
+
             sendAction(InvoiceListAction.RefreshData)
         } else {
             setState { copy(isLoading = false) }
@@ -91,6 +92,8 @@ class InvoiceListViewModel(
         viewModelScope.launch {
             setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure {
+                // Let the UI stream handle the error display if needed.
+                // Just reset the refreshing state.
                 setState { copy(isRefreshing = false) }
             }
         }

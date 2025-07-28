@@ -7,19 +7,17 @@ import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
 /**
- * The central authority for all data operations. This repository abstracts the data
- * sources (local Room DB and remote Supabase) from the rest of the app.
- * The ViewModels interact with this interface, unaware of the underlying implementation details.
+ * The central authority for all data operations, abstracting data sources from the app.
  */
 interface RetailRepository {
-    // --- DATA STREAMS (Local-First) ---
+    // --- LOCAL-FIRST DATA STREAMS ---
     fun getInvoicesStream(userId: String): Flow<List<Invoice>>
     fun getCustomersStream(userId: String): Flow<List<Customer>>
     fun getCustomerInvoicesStream(userId: String, customerId: String): Flow<List<Invoice>>
     fun getInvoiceWithDetails(invoiceId: String): Flow<Pair<Invoice?, List<InteractionLog>>>
     fun getCustomerById(customerId: String): Flow<Customer?>
 
-    // --- DATA OPERATIONS (Sync with Remote) ---
+    // --- REMOTE-FIRST DATA OPERATIONS ---
     suspend fun addInvoice(
         userId: String,
         existingCustomerId: String?,

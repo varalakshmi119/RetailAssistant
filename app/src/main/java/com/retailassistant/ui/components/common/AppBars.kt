@@ -1,11 +1,8 @@
 package com.retailassistant.ui.components.common
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -23,16 +20,14 @@ import com.retailassistant.ui.navigation.bottomNavItems
 fun AppBottomBar(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-
-    val isVisible = currentDestination?.route in bottomNavItems.map { it.screen.route }
+    val isVisible = bottomNavItems.any { it.screen.route == currentDestination?.route }
 
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(animationSpec = tween(300)) { it } + fadeIn(tween(300)),
         exit = slideOutVertically(animationSpec = tween(300)) { it } + fadeOut(tween(300))
     ) {
-        BottomAppBar(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+        NavigationBar(
             tonalElevation = 8.dp
         ) {
             bottomNavItems.forEach { item ->
@@ -72,12 +67,12 @@ fun AppBottomBar(navController: NavHostController) {
 fun CenteredTopAppBar(
     title: String,
     navigationIcon: @Composable () -> Unit = {},
-    actions: @Composable () -> Unit = {}
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
         title = { Text(title, fontWeight = FontWeight.SemiBold) },
         navigationIcon = navigationIcon,
-        actions = { actions() },
+        actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,
             scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)

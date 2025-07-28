@@ -10,7 +10,7 @@ import androidx.room.TypeConverters
  */
 @Database(
     entities = [Customer::class, Invoice::class, InteractionLog::class],
-    version = 2, // Version bump for schema changes
+    version = 1,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)

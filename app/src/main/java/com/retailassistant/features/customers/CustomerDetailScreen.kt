@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,8 +48,8 @@ fun CustomerDetailScreen(
         }
     ) { padding ->
         when {
-            state.isCustomerLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
-            state.customer == null -> EmptyState("Not Found", "Customer not found.", Icons.Default.PeopleOutline, Modifier.padding(padding))
+            state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
+            state.customer == null -> EmptyState("Not Found", "This customer could not be found.", Icons.Default.PeopleOutline, Modifier.padding(padding))
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
@@ -64,14 +66,7 @@ fun CustomerDetailScreen(
                     item {
                         Text("Invoices", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
                     }
-
-                    if (state.areInvoicesLoading) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
-                            }
-                        }
-                    } else if (state.invoices.isEmpty()) {
+                    if (state.invoices.isEmpty()) {
                         item {
                             EmptyState("No Invoices", "This customer has no invoices yet.", Icons.AutoMirrored.Filled.ReceiptLong)
                         }
@@ -113,7 +108,7 @@ private fun CustomerDetailHeader(state: CustomerDetailState) {
 }
 
 @Composable
-private fun StatCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, valueColor: androidx.compose.ui.graphics.Color = LocalContentColor.current) {
+private fun StatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, valueColor: Color = LocalContentColor.current) {
     ElevatedCard(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Icon(icon, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)

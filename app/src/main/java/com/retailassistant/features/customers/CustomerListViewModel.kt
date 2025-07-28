@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.*
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.Invoice
-import com.retailassistant.data.db.InvoiceStatus
 import com.retailassistant.data.repository.RetailRepository
 import com.retailassistant.ui.components.specific.CustomerStats
 import io.github.jan.supabase.SupabaseClient
@@ -68,6 +67,7 @@ class CustomerListViewModel(
                     .catch { e -> sendEvent(CustomerListEvent.ShowError(e.message ?: "Failed to load data")) }
                     .collect { sendAction(it) }
             }
+
             sendAction(CustomerListAction.RefreshData)
         } else {
             setState { copy(isLoading = false) }
@@ -92,7 +92,7 @@ class CustomerListViewModel(
             val customerInvoices = invoicesByCustomerId[customer.id] ?: emptyList()
             val stats = CustomerStats(
                 totalInvoices = customerInvoices.size,
-                unpaidAmount = customerInvoices.filter { it.status != InvoiceStatus.PAID }.sumOf { it.balanceDue },
+                unpaidAmount = customerInvoices.sumOf { it.balanceDue },
                 overdueCount = customerInvoices.count { it.isOverdue }
             )
             CustomerWithStats(customer, stats)
@@ -115,6 +115,7 @@ class CustomerListViewModel(
                 sendEvent(CustomerListEvent.ShowError(error.message ?: "Sync failed"))
                 setState { copy(isRefreshing = false) }
             }
+            // isRefreshing is set to false in processLoadedData upon success
         }
     }
 }

@@ -1,6 +1,9 @@
 package com.retailassistant.data.db
 
-import androidx.room.*
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import androidx.room.TypeConverter
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -12,25 +15,13 @@ import kotlinx.serialization.encoding.Encoder
 import java.time.LocalDate
 import java.util.UUID
 
-// This file centralizes all Room entities and related enums/converters.
 // Models are shared between Room and Supabase for serialization consistency.
 // Indices are added for production-grade performance on large datasets.
 
-// --- CUSTOM SERIALIZER FOR LocalDate ---
-// This tells kotlinx.serialization how to convert LocalDate to a String and back.
-// This is the key fix for the SerializationException.
 object LocalDateSerializer : KSerializer<LocalDate> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
-
-    override fun serialize(encoder: Encoder, value: LocalDate) {
-        // LocalDate.toString() conveniently produces "YYYY-MM-DD" format
-        encoder.encodeString(value.toString())
-    }
-
-    override fun deserialize(decoder: Decoder): LocalDate {
-        // LocalDate.parse() can read "YYYY-MM-DD" format
-        return LocalDate.parse(decoder.decodeString())
-    }
+    override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): LocalDate = LocalDate.parse(decoder.decodeString())
 }
 
 enum class InvoiceStatus { UNPAID, PAID, OVERDUE, PARTIALLY_PAID }
@@ -47,21 +38,17 @@ data class Customer(
 )
 
 @Serializable
-@Entity(tableName = "invoices", indices = [Index(value = ["userId"]), Index(value = ["customerId"])])
+@Entity(
+    tableName = "invoices",
+    indices = [Index(value = ["userId"]), Index(value = ["customerId"])]
+)
 data class Invoice(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     @SerialName("customer_id") val customerId: String,
     @SerialName("total_amount") val totalAmount: Double,
     @SerialName("amount_paid") val amountPaid: Double = 0.0,
-
-    // **MODIFIED**: Replaced @Contextual with the explicit custom serializer.
-    @Serializable(with = LocalDateSerializer::class)
-    @SerialName("issue_date") val issueDate: LocalDate,
-
-    // **MODIFIED**: Replaced @Contextual with the explicit custom serializer.
-    @Serializable(with = LocalDateSerializer::class)
-    @SerialName("due_date") val dueDate: LocalDate,
-
+    @Serializable(with = LocalDateSerializer::class) @SerialName("issue_date") val issueDate: LocalDate,
+    @Serializable(with = LocalDateSerializer::class) @SerialName("due_date") val dueDate: LocalDate,
     val status: InvoiceStatus = InvoiceStatus.UNPAID,
     @SerialName("original_scan_url") val originalScanUrl: String,
     @SerialName("created_at") val createdAt: Long = System.currentTimeMillis(),
@@ -74,7 +61,10 @@ data class Invoice(
 }
 
 @Serializable
-@Entity(tableName = "interaction_logs", indices = [Index(value = ["userId"]), Index(value = ["invoiceId"])])
+@Entity(
+    tableName = "interaction_logs",
+    indices = [Index(value = ["userId"]), Index(value = ["invoiceId"])]
+)
 data class InteractionLog(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     @SerialName("invoice_id") val invoiceId: String,
@@ -85,24 +75,26 @@ data class InteractionLog(
     @SerialName("created_at") val createdAt: Long = System.currentTimeMillis()
 )
 
+/**
+ * Data Transfer Object for Gemini API responses.
+ */
 @Serializable
 data class ExtractedInvoiceData(
     @SerialName("customer_name") val customerName: String?,
-    val date: String?, // Expected format: YYYY-MM-DD
-    @SerialName("due_date") val dueDate: String?, // Expected format: YYYY-MM-DD
+    val date: String?,
+    @SerialName("due_date") val dueDate: String?,
     @SerialName("phone_number") val phoneNumber: String?,
     val email: String?,
     @SerialName("total_amount") val totalAmount: Double?
 )
 
+/**
+ * Type converters for Room to handle LocalDate.
+ */
 class DateConverter {
     @TypeConverter
-    fun toDate(dateLong: Long?): LocalDate? {
-        return dateLong?.let { LocalDate.ofEpochDay(it) }
-    }
+    fun toDate(dateLong: Long?): LocalDate? = dateLong?.let { LocalDate.ofEpochDay(it) }
 
     @TypeConverter
-    fun fromDate(date: LocalDate?): Long? {
-        return date?.toEpochDay()
-    }
+    fun fromDate(date: LocalDate?): Long? = date?.toEpochDay()
 }

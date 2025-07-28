@@ -8,8 +8,7 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
 
 /**
- * A factory function to create and configure the SupabaseClient singleton.
- * This centralizes client setup and ensures all necessary plugins are installed.
+ * Factory function to create and configure the SupabaseClient singleton.
  */
 fun createSupabaseClient(): SupabaseClient {
     return createSupabaseClient(

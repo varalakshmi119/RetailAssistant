@@ -6,16 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,9 +24,7 @@ fun EmptyState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .padding(32.dp)
-            .fillMaxSize(),
+        modifier = modifier.padding(32.dp).fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -74,9 +68,7 @@ fun FullScreenError(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .padding(32.dp)
-            .fillMaxSize(),
+        modifier = modifier.padding(32.dp).fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -111,21 +103,15 @@ fun FullScreenError(
 fun AnimatedCounter(
     targetValue: Double,
     formatter: (Double) -> String,
-    style: androidx.compose.ui.text.TextStyle,
+    style: TextStyle,
     modifier: Modifier = Modifier,
     color: Color = LocalContentColor.current
 ) {
-    var animatedValue by remember { mutableStateOf(0.0) }
-
-    LaunchedEffect(targetValue) {
-        animatedValue = targetValue
-    }
-
     val animatedFloat by animateFloatAsState(
-        targetValue = animatedValue.toFloat(),
-        animationSpec = tween(durationMillis = 1000)
+        targetValue = targetValue.toFloat(),
+        animationSpec = tween(durationMillis = 1000),
+        label = "animatedCounter"
     )
-
     Text(
         text = formatter(animatedFloat.toDouble()),
         style = style,

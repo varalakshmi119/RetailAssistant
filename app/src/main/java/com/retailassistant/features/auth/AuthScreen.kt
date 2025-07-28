@@ -36,7 +36,7 @@ fun AuthScreen(
         viewModel.event.collect { event ->
             when (event) {
                 is AuthEvent.NavigateToDashboard -> onLoginSuccess()
-                is AuthEvent.ShowError -> snackbarHostState.showSnackbar(message = event.message)
+                is AuthEvent.ShowMessage -> snackbarHostState.showSnackbar(message = event.message)
             }
         }
     }

@@ -1,14 +1,14 @@
 package com.retailassistant.data.db
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Data Access Objects (DAOs) for Room. These define all database interactions.
- * Using `Flow` makes the data streams reactive, automatically updating the UI
- * when the underlying data changes. This is the cornerstone of the local-first approach.
+ * Data Access Objects for Room. These define all database interactions.
+ * Using `Flow` makes data streams reactive, automatically updating the UI.
  */
-
 @Dao
 interface CustomerDao {
     @Upsert

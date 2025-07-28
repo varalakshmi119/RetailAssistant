@@ -6,8 +6,9 @@ import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.InteractionLog
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.repository.RetailRepository
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -30,8 +31,8 @@ data class InvoiceDetailState(
 ) : UiState
 
 sealed interface InvoiceDetailAction : UiAction {
-    data class DetailsLoaded(val details: Pair<Invoice?, List<InteractionLog>>) : InvoiceDetailAction
-    data class CustomerLoaded(val customer: Customer?) : InvoiceDetailAction
+    data class DetailsLoaded(val invoice: Invoice, val logs: List<InteractionLog>) : InvoiceDetailAction
+    data class CustomerLoaded(val customer: Customer) : InvoiceDetailAction
     data class ImageUrlLoaded(val url: String) : InvoiceDetailAction
     object CallCustomer : InvoiceDetailAction
     data class ShowDialog(val dialog: ActiveDialog?) : InvoiceDetailAction
@@ -41,8 +42,7 @@ sealed interface InvoiceDetailAction : UiAction {
 }
 
 sealed interface InvoiceDetailEvent : UiEvent {
-    data class ShowError(val message: String) : InvoiceDetailEvent
-    data class ShowSuccess(val message: String) : InvoiceDetailEvent
+    data class ShowMessage(val message: String) : InvoiceDetailEvent
     data class MakePhoneCall(val phoneNumber: String) : InvoiceDetailEvent
 }
 
@@ -52,29 +52,33 @@ class InvoiceDetailViewModel(
 ) : MviViewModel<InvoiceDetailState, InvoiceDetailAction, InvoiceDetailEvent>() {
 
     init {
-        repository.getInvoiceWithDetails(invoiceId)
+        val invoiceDetailsStream = repository.getInvoiceWithDetails(invoiceId)
+
+        // Stream invoice and logs
+        invoiceDetailsStream
             .onEach { (invoice, logs) ->
-                sendAction(InvoiceDetailAction.DetailsLoaded(invoice to logs))
-                invoice?.let {
-                    loadCustomer(it.customerId)
-                    loadImage(it.originalScanUrl)
+                if (invoice != null) {
+                    sendAction(InvoiceDetailAction.DetailsLoaded(invoice, logs))
                 }
             }
             .launchIn(viewModelScope)
-    }
 
-    private fun loadCustomer(customerId: String) {
-        repository.getCustomerById(customerId)
-            .onEach { customer -> sendAction(InvoiceDetailAction.CustomerLoaded(customer)) }
-            .launchIn(viewModelScope)
-    }
+        // Stream customer details based on invoice
+        invoiceDetailsStream.filterNotNull().onEach { (invoice, _) ->
+            invoice?.customerId?.let { customerId ->
+                repository.getCustomerById(customerId).filterNotNull().onEach { customer ->
+                    sendAction(InvoiceDetailAction.CustomerLoaded(customer))
+                }.launchIn(viewModelScope)
+            }
+        }.launchIn(viewModelScope)
 
-    private fun loadImage(storagePath: String) {
+        // Load image URL once
         viewModelScope.launch {
-            if (uiState.value.imageUrl == null) {
-                repository.getPublicUrl(storagePath)
+            val invoice = repository.getInvoiceWithDetails(invoiceId).first().first
+            if (invoice != null && uiState.value.imageUrl == null) {
+                repository.getPublicUrl(invoice.originalScanUrl)
                     .onSuccess { url -> sendAction(InvoiceDetailAction.ImageUrlLoaded(url)) }
-                    .onFailure { sendEvent(InvoiceDetailEvent.ShowError("Could not load invoice image.")) }
+                    .onFailure { sendEvent(InvoiceDetailEvent.ShowMessage("Could not load invoice image.")) }
             }
         }
     }
@@ -83,70 +87,60 @@ class InvoiceDetailViewModel(
 
     override fun handleAction(action: InvoiceDetailAction) {
         when (action) {
-            is InvoiceDetailAction.DetailsLoaded -> setState {
-                copy(invoice = action.details.first, logs = action.details.second, isLoading = action.details.first == null)
-            }
+            is InvoiceDetailAction.DetailsLoaded -> setState { copy(invoice = action.invoice, logs = action.logs, isLoading = false) }
             is InvoiceDetailAction.CustomerLoaded -> setState { copy(customer = action.customer) }
             is InvoiceDetailAction.ImageUrlLoaded -> setState { copy(imageUrl = action.url) }
             is InvoiceDetailAction.AddPayment -> addPayment(action.amount, action.note)
             is InvoiceDetailAction.AddNote -> addNote(action.note)
             is InvoiceDetailAction.PostponeDueDate -> postponeDueDate(action.newDueDate, action.reason)
             is InvoiceDetailAction.CallCustomer -> callCustomer()
-            is InvoiceDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog) }
+            is InvoiceDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog, isProcessingAction = false) }
         }
     }
 
-    private fun <T> handleRepoResult(
-        result: Result<T>,
-        successMessage: String,
-        failurePrefix: String
-    ) {
+    private fun <T> handleRepoResult(result: Result<T>, successMessage: String) {
         result.onSuccess {
-            sendEvent(InvoiceDetailEvent.ShowSuccess(successMessage))
+            sendEvent(InvoiceDetailEvent.ShowMessage(successMessage))
         }.onFailure {
-            sendEvent(InvoiceDetailEvent.ShowError("$failurePrefix: ${it.message}"))
+            sendEvent(InvoiceDetailEvent.ShowMessage(it.message ?: "An error occurred"))
         }
         setState { copy(isProcessingAction = false, activeDialog = null) }
     }
 
     private fun addPayment(amount: Double, note: String?) {
         val userId = uiState.value.invoice?.userId ?: return
-        viewModelScope.launch {
-            if (amount <= 0) {
-                sendEvent(InvoiceDetailEvent.ShowError("Payment amount must be positive."))
-                return@launch
-            }
-            setState { copy(isProcessingAction = true) }
-            val result = repository.addPayment(userId, invoiceId, amount, note)
-            handleRepoResult(result, "Payment recorded.", "Failed to record payment")
+        if (amount <= 0) {
+            sendEvent(InvoiceDetailEvent.ShowMessage("Payment amount must be positive."))
+            return
         }
+        performAction { repository.addPayment(userId, invoiceId, amount, note) }
     }
 
     private fun addNote(note: String) {
         val userId = uiState.value.invoice?.userId ?: return
-        viewModelScope.launch {
-            if (note.isBlank()) {
-                sendEvent(InvoiceDetailEvent.ShowError("Note cannot be empty."))
-                return@launch
-            }
-            setState { copy(isProcessingAction = true) }
-            val result = repository.addNote(userId, invoiceId, note)
-            handleRepoResult(result, "Note added.", "Failed to add note")
+        if (note.isBlank()) {
+            sendEvent(InvoiceDetailEvent.ShowMessage("Note cannot be empty."))
+            return
         }
+        performAction { repository.addNote(userId, invoiceId, note) }
     }
 
     private fun postponeDueDate(newDueDate: LocalDate, reason: String?) {
         val userId = uiState.value.invoice?.userId ?: return
+        performAction { repository.postponeDueDate(userId, invoiceId, newDueDate, reason) }
+    }
+
+    private fun performAction(repoCall: suspend () -> Result<Unit>) {
         viewModelScope.launch {
             setState { copy(isProcessingAction = true) }
-            val result = repository.postponeDueDate(userId, invoiceId, newDueDate, reason)
-            handleRepoResult(result, "Due date postponed.", "Failed to postpone due date")
+            val result = repoCall()
+            handleRepoResult(result, "Action completed successfully.")
         }
     }
 
     private fun callCustomer() {
-        uiState.value.customer?.phone?.takeIf { phone -> phone.isNotBlank() }
+        uiState.value.customer?.phone?.takeIf { it.isNotBlank() }
             ?.let { phone -> sendEvent(InvoiceDetailEvent.MakePhoneCall(phone)) }
-            ?: sendEvent(InvoiceDetailEvent.ShowError("Customer has no phone number."))
+            ?: sendEvent(InvoiceDetailEvent.ShowMessage("Customer has no phone number."))
     }
 }

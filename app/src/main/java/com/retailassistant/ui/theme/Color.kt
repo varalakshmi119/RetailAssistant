@@ -5,15 +5,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
-// A sophisticated and modern color palette.
-// See: https://color.adobe.com/create/color-wheel
-
+// Modern color palette inspired by TailwindCSS colors
 val Slate = Color(0xFF2D3748)
 val LightSlate = Color(0xFF4A5568)
 val Steel = Color(0xFF718096)
 val OffWhite = Color(0xFFF7FAFC)
 val White = Color(0xFFFFFFFF)
-
 val Coral = Color(0xFFF56565)
 val Teal = Color(0xFF38B2AC)
 val Amber = Color(0xFFED8936)

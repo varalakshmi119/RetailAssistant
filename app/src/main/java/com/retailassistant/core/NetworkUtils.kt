@@ -3,13 +3,10 @@ package com.retailassistant.core
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-/**
- * Network utility functions for handling retries and network operations
- */
 object NetworkUtils {
-    
     /**
-     * Retry a network operation with exponential backoff
+     * Retries a suspend function with exponential backoff and jitter.
+     * Skips retries for non-recoverable errors like authentication failures.
      */
     suspend fun <T> retryWithBackoff(
         maxRetries: Int = 3,
@@ -20,28 +17,24 @@ object NetworkUtils {
     ): T {
         var currentDelay = initialDelayMs
         var lastException: Exception? = null
-        
+
         repeat(maxRetries) { attempt ->
             try {
                 return operation()
             } catch (e: Exception) {
                 lastException = e
-                
-                // Don't retry on certain errors
+
                 if (!ErrorHandler.isNetworkError(e) || ErrorHandler.isAuthError(e)) {
-                    throw e
+                    throw e // Don't retry on non-network or auth errors
                 }
-                
-                // Don't delay on the last attempt
+
                 if (attempt < maxRetries - 1) {
-                    // Add jitter to prevent thundering herd
                     val jitter = Random.nextLong(0, currentDelay / 4)
                     delay(currentDelay + jitter)
                     currentDelay = (currentDelay * backoffMultiplier).toLong().coerceAtMost(maxDelayMs)
                 }
             }
         }
-        
-        throw lastException ?: Exception("Max retries exceeded")
+        throw lastException ?: Exception("Max retries exceeded without a specific exception.")
     }
 }

@@ -10,8 +10,10 @@ import java.util.Locale
  * A centralized utility object for common formatting tasks.
  */
 object Utils {
+
     private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     private val timestampFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a", Locale.ENGLISH)
+        .withZone(ZoneId.systemDefault())
 
     fun formatCurrency(amount: Double): String {
         return currencyFormatter.format(amount)
@@ -19,10 +21,7 @@ object Utils {
 
     fun formatTimestamp(timestamp: Long): String {
         return try {
-            Instant.ofEpochMilli(timestamp)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime()
-                .format(timestampFormatter)
+            timestampFormatter.format(Instant.ofEpochMilli(timestamp))
         } catch (e: Exception) {
             "Invalid Date"
         }

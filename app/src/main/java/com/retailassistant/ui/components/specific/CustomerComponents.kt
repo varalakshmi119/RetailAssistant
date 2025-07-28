@@ -53,30 +53,22 @@ fun CustomerCard(
                 }
                 Row {
                     customer.phone?.let {
-                        IconButton(onClick = onCallClick) {
-                            Icon(Icons.Default.Call, "Call ${customer.name}")
-                        }
+                        IconButton(onClick = onCallClick) { Icon(Icons.Default.Call, "Call ${customer.name}") }
                     }
                     customer.email?.let {
-                        IconButton(onClick = onEmailClick) {
-                            Icon(Icons.Default.Email, "Email ${customer.name}")
-                        }
+                        IconButton(onClick = onEmailClick) { Icon(Icons.Default.Email, "Email ${customer.name}") }
                     }
                 }
             }
-
             if (stats.unpaidAmount > 0) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("Outstanding", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(Utils.formatCurrency(stats.unpaidAmount), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                     }
                     if (stats.overdueCount > 0) {
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.errorContainer
-                        ) {
+                        Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.errorContainer) {
                             Text(
                                 "${stats.overdueCount} Overdue",
                                 style = MaterialTheme.typography.labelMedium,
@@ -91,7 +83,6 @@ fun CustomerCard(
         }
     }
 }
-
 
 @Composable
 fun Avatar(name: String, modifier: Modifier = Modifier, size: Dp = 48.dp) {

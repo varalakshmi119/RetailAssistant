@@ -89,60 +89,57 @@ fun DashboardScreen(
             ShimmeringList()
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                    item { DashboardHeader(userName = state.userName) }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            StatCard(
-                                label = "Total Unpaid",
-                                value = state.totalUnpaid,
-                                icon = Icons.Default.AccountBalanceWallet,
-                                gradient = AppGradients.Primary,
-                                modifier = Modifier.weight(1f)
-                            )
-                            StatCard(
-                                label = "Overdue",
-                                value = state.overdueCount.toDouble(),
-                                formatter = { it.toInt().toString() },
-                                icon = Icons.Default.Warning,
-                                gradient = if (state.overdueCount > 0) AppGradients.Error else AppGradients.Success,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                    item {
-                        Text(
-                            "Recent Invoices",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 8.dp)
+                item { DashboardHeader(userName = state.userName) }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        StatCard(
+                            label = "Total Unpaid",
+                            value = state.totalUnpaid,
+                            icon = Icons.Default.AccountBalanceWallet,
+                            gradient = AppGradients.Primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            label = "Overdue",
+                            value = state.overdueCount.toDouble(),
+                            formatter = { it.toInt().toString() },
+                            icon = Icons.Default.Warning,
+                            gradient = if (state.overdueCount > 0) AppGradients.Error else AppGradients.Success,
+                            modifier = Modifier.weight(1f)
                         )
                     }
-
-                    if (state.invoicesWithCustomers.isEmpty()) {
-                        item {
-                            EmptyState(
-                                title = "No invoices yet",
-                                subtitle = "Tap the '+' button below to add your first one.",
-                                icon = Icons.AutoMirrored.Filled.ReceiptLong
-                            )
-                        }
-                    } else {
-                        items(state.invoicesWithCustomers, key = { it.invoice.id }) { item ->
-                            val friendlyDueDate = item.invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-                            InvoiceCard(
-                                invoice = item.invoice,
-                                customerName = item.customer?.name ?: "Unknown",
-                                friendlyDueDate = friendlyDueDate,
-                                onClick = { onNavigateToInvoice(item.invoice.id) },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
+                }
+                item {
+                    Text(
+                        "Recent Invoices",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                if (state.invoicesWithCustomers.isEmpty()) {
+                    item {
+                        EmptyState(
+                            title = "No invoices yet",
+                            subtitle = "Tap the '+' button below to add your first one.",
+                            icon = Icons.AutoMirrored.Filled.ReceiptLong
+                        )
+                    }
+                } else {
+                    items(state.invoicesWithCustomers, key = { it.invoice.id }) { item ->
+                        val friendlyDueDate = item.invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+                        InvoiceCard(
+                            invoice = item.invoice,
+                            customerName = item.customer?.name ?: "Unknown",
+                            friendlyDueDate = friendlyDueDate,
+                            onClick = { onNavigateToInvoice(item.invoice.id) },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
                 }
             }
         }

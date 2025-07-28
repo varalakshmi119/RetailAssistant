@@ -35,16 +35,16 @@ class NotificationWorker(
         val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.success()
 
         return try {
-            // Sync data to ensure we are checking against the latest information.
+            // Ensure we have the latest data before checking.
             repository.syncAllUserData(userId).getOrThrow()
-
             val overdueInvoices = repository.getInvoicesStream(userId).first().filter { it.isOverdue }
+
             if (overdueInvoices.isNotEmpty()) {
                 showOverdueNotification(overdueInvoices.size)
             }
             Result.success()
         } catch (e: Exception) {
-            // If sync fails (e.g., no internet), retry later.
+            // If sync fails (e.g., no internet), retry later as per WorkManager policy.
             Result.retry()
         }
     }

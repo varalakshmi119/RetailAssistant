@@ -22,8 +22,7 @@ val AppFontFamily = FontFamily(
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Normal),
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Medium),
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.SemiBold),
-    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Bold),
-    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.ExtraBold)
+    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Bold)
 )
 
 val Typography = Typography(

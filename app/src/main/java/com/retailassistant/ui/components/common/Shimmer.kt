@@ -17,25 +17,26 @@ import androidx.compose.ui.unit.dp
 fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modifier = composed {
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnimation = transition.animateFloat(
-        initialValue = -500f,
-        targetValue = 2000f,
+        initialValue = 0f,
+        targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
+            animation = tween(1300, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "shimmer-translate"
     )
-    val shimmerColor = MaterialTheme.colorScheme.surfaceVariant
+
     val shimmerColors = listOf(
-        shimmerColor.copy(0.5f),
-        shimmerColor.copy(0.8f),
-        shimmerColor.copy(0.5f),
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
     )
+
     background(
         brush = Brush.linearGradient(
             colors = shimmerColors,
-            start = Offset(translateAnimation.value - 500, translateAnimation.value - 500),
-            end = Offset(translateAnimation.value, translateAnimation.value)
+            start = Offset.Zero,
+            end = Offset(x = translateAnimation.value, y = translateAnimation.value)
         ),
         shape = shape
     )
@@ -46,7 +47,8 @@ fun ShimmeringList(modifier: Modifier = Modifier, itemCount: Int = 5) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        userScrollEnabled = false
     ) {
         items(itemCount) {
             Box(

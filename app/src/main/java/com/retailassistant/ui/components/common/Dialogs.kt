@@ -20,11 +20,7 @@ fun AddPaymentDialog(
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    var isAmountValid by remember { mutableStateOf(false) }
-
-    LaunchedEffect(amount) {
-        isAmountValid = (amount.toDoubleOrNull() ?: 0.0) > 0.0
-    }
+    val isAmountValid by remember(amount) { derivedStateOf { (amount.toDoubleOrNull() ?: 0.0) > 0.0 } }
 
     AlertDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
@@ -33,11 +29,7 @@ fun AddPaymentDialog(
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 FormTextField(
                     value = amount,
-                    onValueChange = { input ->
-                        amount = input.filter { it.isDigit() || it == '.' }.let {
-                            if (it.count { c -> c == '.' } > 1) it.dropLast(1) else it
-                        }
-                    },
+                    onValueChange = { input -> amount = input.filter { it.isDigit() || it == '.' }.let { if (it.count { c -> c == '.' } > 1) it.dropLast(1) else it } },
                     label = "Amount Paid",
                     prefix = "₹",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -65,6 +57,7 @@ fun AddNoteDialog(
     isProcessing: Boolean
 ) {
     var note by remember { mutableStateOf("") }
+
     AlertDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Add a Note") },
@@ -129,8 +122,6 @@ fun PostponeDueDateDialog(
                 if (isProcessing) CircularProgressIndicator(Modifier.size(20.dp)) else Text("Postpone")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isProcessing) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isProcessing) { Text("Cancel") } }
     )
 }

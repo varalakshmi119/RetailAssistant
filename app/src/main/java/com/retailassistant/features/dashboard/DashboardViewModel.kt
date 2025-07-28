@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.*
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.Invoice
-import com.retailassistant.data.db.InvoiceStatus
 import com.retailassistant.data.repository.RetailRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
@@ -45,8 +44,7 @@ class DashboardViewModel(
 
     init {
         val user = supabase.auth.currentUserOrNull()
-        val userName = user?.email?.substringBefore('@')
-        setState { copy(userName = userName) }
+        setState { copy(userName = user?.email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }) }
 
         if (userId != null) {
             viewModelScope.launch {
@@ -57,6 +55,7 @@ class DashboardViewModel(
                     .catch { e -> sendEvent(DashboardEvent.ShowError(e.message ?: "Failed to load data")) }
                     .collect { sendAction(it) }
             }
+
             refreshData(isInitial = true)
         } else {
             setState { copy(isLoading = false) }
@@ -78,16 +77,12 @@ class DashboardViewModel(
         val invoicesWithCustomers = invoices.map { invoice ->
             InvoiceWithCustomer(invoice, customerMap[invoice.customerId])
         }
-        val totalUnpaid = invoices
-            .filter { it.status != InvoiceStatus.PAID }
-            .sumOf { it.balanceDue }
-        val overdueCount = invoices.count { it.isOverdue }
 
         setState {
             copy(
-                invoicesWithCustomers = invoicesWithCustomers.take(10), // Show most recent 10 on dashboard
-                totalUnpaid = totalUnpaid,
-                overdueCount = overdueCount,
+                invoicesWithCustomers = invoicesWithCustomers.take(10), // Show most recent 10
+                totalUnpaid = invoices.sumOf { it.balanceDue },
+                overdueCount = invoices.count { it.isOverdue },
                 isLoading = false,
                 isRefreshing = false
             )
@@ -100,6 +95,7 @@ class DashboardViewModel(
             if (!isInitial) setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(DashboardEvent.ShowError(error.message ?: "Sync failed"))
+                // Refreshing state is reset by `updateStateWithData` on success
                 if (!isInitial) setState { copy(isRefreshing = false) }
             }
         }
@@ -109,7 +105,7 @@ class DashboardViewModel(
         if (userId == null) return
         viewModelScope.launch {
             repository.signOut(userId)
-            // Navigation is handled by the sessionStatus collector in AppNavigation
+            // Navigation is handled reactively by AppNavigation observing the session status.
         }
     }
 }

@@ -13,7 +13,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +25,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.retailassistant.core.Utils
+import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.db.InvoiceStatus
 import com.retailassistant.ui.components.common.*
 import com.retailassistant.ui.components.specific.Avatar
@@ -49,8 +50,7 @@ fun InvoiceDetailScreen(
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
-                is InvoiceDetailEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
-                is InvoiceDetailEvent.ShowSuccess -> snackbarHostState.showSnackbar(event.message)
+                is InvoiceDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
                 is InvoiceDetailEvent.MakePhoneCall -> makePhoneCall(context, event.phoneNumber)
             }
         }
@@ -73,8 +73,9 @@ fun InvoiceDetailScreen(
     ) { padding ->
         when {
             state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
-            state.invoice == null -> EmptyState("Not Found", "Invoice could not be loaded.", Icons.Default.Error, Modifier.padding(padding))
+            state.invoice == null -> EmptyState("Not Found", "This invoice could not be loaded.", Icons.Default.Error, Modifier.padding(padding))
             else -> {
+                val invoice = state.invoice!! // Assert non-null here, as we've already checked state.invoice == null
                 LazyColumn(
                     modifier = Modifier.padding(padding).fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -82,22 +83,22 @@ fun InvoiceDetailScreen(
                 ) {
                     item {
                         CustomerHeader(
-                            customerName = state.customer?.name ?: "Unknown",
+                            customerName = state.customer?.name ?: "Unknown Customer",
                             customerPhone = state.customer?.phone,
                             onCall = { viewModel.sendAction(InvoiceDetailAction.CallCustomer) },
-                            onNavigate = { state.customer?.id?.let { onNavigateToCustomer(it) } }
+                            onNavigate = { state.customer?.id?.let(onNavigateToCustomer) }
                         )
                     }
-                    item { PaymentSummaryCard(state) }
+                    item { PaymentSummaryCard(invoice) } // Now 'invoice' is non-null
                     item {
                         ActionButtons(
-                            invoiceStatus = state.invoice?.status ?: InvoiceStatus.UNPAID,
+                            invoiceStatus = invoice.status,
                             onAddPayment = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddPayment)) },
                             onAddNote = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddNote)) },
                             onPostpone = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) }
                         )
                     }
-                    item { InvoiceImageCard(imageUrl = state.imageUrl) }
+                    item { InvoiceImageCard(imageUrl = invoice.originalScanUrl) }
                     if (state.logs.isNotEmpty()) {
                         item {
                             Text("Activity Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -114,7 +115,7 @@ fun InvoiceDetailScreen(
 
 @Composable
 private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAction) -> Unit) {
-    when (val dialog = state.activeDialog) {
+    when (state.activeDialog) {
         ActiveDialog.AddPayment -> AddPaymentDialog(
             onDismiss = { onAction(InvoiceDetailAction.ShowDialog(null)) },
             onConfirm = { amount, note -> onAction(InvoiceDetailAction.AddPayment(amount, note)) },
@@ -160,28 +161,27 @@ private fun CustomerHeader(customerName: String, customerPhone: String?, onCall:
 }
 
 @Composable
-private fun PaymentSummaryCard(state: InvoiceDetailState) {
+private fun PaymentSummaryCard(invoice: Invoice) {
+    val progress = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f
+    
     ElevatedCard {
-        val invoice = state.invoice!!
-        val progress = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Total Amount", style = MaterialTheme.typography.bodyLarge)
-            Text(com.retailassistant.core.Utils.formatCurrency(invoice.totalAmount), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(Utils.formatCurrency(invoice.totalAmount), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(16.dp))
         LinearProgressIndicator(
-        progress = { progress.coerceIn(0f, 1f) },
-        modifier = Modifier.fillMaxWidth().height(10.dp).clip(MaterialTheme.shapes.small),
-        color = if (invoice.status == InvoiceStatus.PAID) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(10.dp).clip(MaterialTheme.shapes.small),
+            color = if (invoice.status == InvoiceStatus.PAID) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-            Text("${com.retailassistant.core.Utils.formatCurrency(invoice.amountPaid)} Paid", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
-            Text("${com.retailassistant.core.Utils.formatCurrency(invoice.balanceDue)} Due", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+            Text("${Utils.formatCurrency(invoice.amountPaid)} Paid", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+            Text("${Utils.formatCurrency(invoice.balanceDue)} Due", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
         }
-        HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+        HorizontalDivider(Modifier.padding(vertical = 16.dp))
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Column {
                 Text("Due Date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -210,27 +210,25 @@ private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit
 private fun InvoiceImageCard(imageUrl: String?) {
     var isExpanded by remember { mutableStateOf(false) }
     ElevatedCard(modifier = Modifier.clickable { isExpanded = !isExpanded }) {
-        Column(Modifier.padding(0.dp)) {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(),
-                contentDescription = "Invoice Scan",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 200.dp, max = if (isExpanded) 600.dp else 200.dp)
-                    .animateContentSize(),
-                contentScale = if (isExpanded) ContentScale.Fit else ContentScale.Crop,
-                loading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } },
-                error = {
-                    Box(Modifier.fillMaxSize().padding(16.dp), Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.BrokenImage, null, tint = MaterialTheme.colorScheme.error)
-                            Spacer(Modifier.height(8.dp))
-                            Text("Image failed to load", style = MaterialTheme.typography.bodyMedium)
-                        }
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(),
+            contentDescription = "Invoice Scan",
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 200.dp, max = if (isExpanded) 600.dp else 200.dp)
+                .animateContentSize(),
+            contentScale = if (isExpanded) ContentScale.Fit else ContentScale.Crop,
+            loading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } },
+            error = {
+                Box(Modifier.fillMaxSize().padding(16.dp), Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.BrokenImage, null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Image failed to load", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-            )
-        }
+            }
+        )
     }
 }
 

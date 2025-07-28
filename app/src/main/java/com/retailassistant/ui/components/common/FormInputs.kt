@@ -21,7 +21,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Locale
 
 @Composable
 fun FormTextField(
@@ -42,20 +42,15 @@ fun FormTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        placeholder = { if (placeholder != null) Text(placeholder) },
+        placeholder = placeholder?.let { { Text(it) } },
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         singleLine = singleLine,
-        shape = MaterialTheme.shapes.medium,
         keyboardOptions = keyboardOptions,
         leadingIcon = leadingIcon,
         visualTransformation = visualTransformation,
         isError = isError,
-        prefix = { if (prefix != null) Text(text = prefix, style = MaterialTheme.typography.bodyLarge) },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
+        prefix = prefix?.let { { Text(text = it, style = MaterialTheme.typography.bodyLarge) } },
     )
 }
 
@@ -85,27 +80,30 @@ fun SearchBar(
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
         shape = MaterialTheme.shapes.extraLarge,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoCompleteCustomerField(
-    value: String, onValueChange: (String) -> Unit, onItemSelected: (Customer) -> Unit,
-    suggestions: List<Customer>, label: String, modifier: Modifier = Modifier,
-    enabled: Boolean = true, leadingIcon: @Composable (() -> Unit)? = null
+    value: String,
+    onValueChange: (String) -> Unit,
+    onItemSelected: (Customer) -> Unit,
+    suggestions: List<Customer>,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: @Composable (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     var textFieldSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
-
-    val filteredSuggestions = remember(value, suggestions) {
-        if (value.isBlank()) emptyList()
-        else suggestions.filter {
-            it.name.contains(value, ignoreCase = true) || it.phone?.contains(value) == true
+    val filteredSuggestions by remember(value, suggestions) {
+        derivedStateOf {
+            if (value.isBlank()) emptyList()
+            else suggestions.filter {
+                it.name.contains(value, ignoreCase = true) || it.phone?.contains(value) == true
+            }
         }
     }
 
@@ -129,7 +127,6 @@ fun AutoCompleteCustomerField(
             enabled = enabled,
             singleLine = true,
         )
-
         ExposedDropdownMenu(
             expanded = expanded && filteredSuggestions.isNotEmpty(),
             onDismissRequest = { expanded = false },
@@ -141,14 +138,12 @@ fun AutoCompleteCustomerField(
                     onClick = {
                         onItemSelected(customer)
                         expanded = false
-                    },
-                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    }
                 )
             }
         }
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,13 +160,14 @@ fun EnhancedDatePickerField(
     )
 
     Box(modifier = modifier) {
+        // This makes the entire field clickable, not just the icon.
         FormTextField(
             value = value.format(DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault())),
             onValueChange = {},
             label = label,
             leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = "Date Picker") },
             modifier = Modifier.clickable(enabled = enabled) { showDatePicker = true },
-            enabled = enabled
+            enabled = false // Disable direct text input
         )
     }
 
@@ -186,12 +182,11 @@ fun EnhancedDatePickerField(
                             val selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
                             onValueChange(selectedDate)
                         }
-                    }
+                    },
+                    enabled = datePickerState.selectedDateMillis != null
                 ) { Text("OK") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
         ) {
             DatePicker(state = datePickerState, showModeToggle = true)
         }

@@ -1,12 +1,11 @@
 package com.retailassistant.ui.components.common
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -32,22 +31,21 @@ fun GradientButton(
     icon: ImageVector? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val brush = if (enabled) {
+        Brush.horizontalGradient(colors = listOf(gradient.start, gradient.end))
+    } else {
+        Brush.horizontalGradient(colors = listOf(Color.Gray.copy(alpha = 0.5f), Color.DarkGray.copy(alpha = 0.5f)))
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
             .clip(MaterialTheme.shapes.medium)
-            .background(
-                brush = if (enabled) {
-                    Brush.horizontalGradient(colors = listOf(gradient.start, gradient.end))
-                } else {
-                    Brush.horizontalGradient(colors = listOf(Color.Gray.copy(alpha = 0.5f), Color.DarkGray.copy(alpha = 0.5f)))
-                },
-                shape = MaterialTheme.shapes.medium
-            )
+            .background(brush, shape = MaterialTheme.shapes.medium)
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = null, // Using a custom or no ripple
                 enabled = enabled && !isLoading,
                 onClick = onClick
             ),
@@ -55,9 +53,7 @@ fun GradientButton(
     ) {
         AnimatedContent(
             targetState = isLoading,
-            transitionSpec = {
-                (fadeIn() + scaleIn()).togetherWith(fadeOut() + scaleOut())
-            },
+            transitionSpec = { (fadeIn() + scaleIn()).togetherWith(fadeOut() + scaleOut()) },
             label = "GradientButtonLoading"
         ) { loading ->
             if (loading) {
@@ -67,9 +63,7 @@ fun GradientButton(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    icon?.let {
-                        Icon(imageVector = it, contentDescription = null, tint = Color.White)
-                    }
+                    icon?.let { Icon(imageVector = it, contentDescription = null, tint = Color.White) }
                     Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 }
             }

@@ -29,7 +29,7 @@ sealed interface AuthAction : UiAction {
 
 sealed interface AuthEvent : UiEvent {
     object NavigateToDashboard : AuthEvent
-    data class ShowError(val message: String) : AuthEvent
+    data class ShowMessage(val message: String) : AuthEvent
 }
 
 class AuthViewModel(
@@ -59,17 +59,11 @@ class AuthViewModel(
                 val userId = supabase.auth.currentUserOrNull()?.id
                     ?: throw IllegalStateException("Sign-in successful but user not found.")
 
-                // Sync data after successful login.
+                // Sync data after login, but navigate immediately for better UX.
                 repository.syncAllUserData(userId)
-                    .onSuccess { sendEvent(AuthEvent.NavigateToDashboard) }
-                    .onFailure {
-                        // Even if sync fails, let user proceed with cached data.
-                        // The error will be shown on the dashboard.
-                        sendEvent(AuthEvent.NavigateToDashboard)
-                    }
-
+                sendEvent(AuthEvent.NavigateToDashboard)
             } catch (e: Exception) {
-                sendEvent(AuthEvent.ShowError(mapAuthException(e)))
+                sendEvent(AuthEvent.ShowMessage(mapAuthException(e)))
             } finally {
                 setState { copy(isLoading = false) }
             }
@@ -84,13 +78,11 @@ class AuthViewModel(
                     email = uiState.value.email.trim()
                     password = uiState.value.password
                 }
-                // Most Supabase setups require email confirmation. Inform the user.
-                sendEvent(AuthEvent.ShowError("Account created! Please check your email for a confirmation link."))
-                // Switch to sign-in mode for user convenience.
-                setState { copy(isSignUpMode = false) }
-
+                sendEvent(AuthEvent.ShowMessage("Account created! Please check your email for a confirmation link."))
+                // Switch to sign-in mode for convenience.
+                setState { copy(isSignUpMode = false, password = "") }
             } catch (e: Exception) {
-                sendEvent(AuthEvent.ShowError(mapAuthException(e)))
+                sendEvent(AuthEvent.ShowMessage(mapAuthException(e)))
             } finally {
                 setState { copy(isLoading = false) }
             }
@@ -102,12 +94,12 @@ class AuthViewModel(
             is RestException -> when {
                 e.message?.contains("email_not_confirmed", true) == true -> "Please confirm your email, then sign in."
                 e.message?.contains("invalid_login_credentials", true) == true -> "Invalid email or password."
-                e.message?.contains("User already registered", true) == true -> "Account exists. Please sign in."
-                e.message?.contains("weak_password", true) == true -> "Password is too weak. Use at least 6 characters."
+                e.message?.contains("User already registered", true) == true -> "An account with this email already exists. Please sign in."
+                e.message?.contains("weak_password", true) == true -> "Password is too weak. Please use at least 6 characters."
                 else -> e.message ?: "An authentication error occurred."
             }
             is HttpRequestException -> "Network error. Please check your connection."
-            else -> e.message ?: "An unknown error occurred. Please try again."
+            else -> e.message ?: "An unknown error occurred."
         }
     }
 }

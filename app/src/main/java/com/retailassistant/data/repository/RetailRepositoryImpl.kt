@@ -1,11 +1,14 @@
 package com.retailassistant.data.repository
 
-import com.retailassistant.core.ImageHandler
-import com.retailassistant.data.db.*
+import com.retailassistant.core.ErrorHandler
+import com.retailassistant.data.db.Customer
+import com.retailassistant.data.db.CustomerDao
+import com.retailassistant.data.db.InteractionLog
+import com.retailassistant.data.db.InteractionLogDao
+import com.retailassistant.data.db.Invoice
+import com.retailassistant.data.db.InvoiceDao
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.exceptions.HttpRequestException
-import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
@@ -16,56 +19,43 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.time.LocalDate
-import java.util.*
+import java.util.UUID
 import kotlin.time.Duration.Companion.hours
 
 class RetailRepositoryImpl(
     private val supabase: SupabaseClient,
-    private val imageHandler: ImageHandler,
     private val invoiceDao: InvoiceDao,
     private val customerDao: CustomerDao,
     private val logDao: InteractionLogDao,
     private val ioDispatcher: CoroutineDispatcher
 ) : RetailRepository {
 
-    // --- DATA STREAMS IMPLEMENTATION ---
     override fun getInvoicesStream(userId: String): Flow<List<Invoice>> = invoiceDao.getInvoicesStream(userId)
     override fun getCustomersStream(userId: String): Flow<List<Customer>> = customerDao.getCustomersStream(userId)
     override fun getCustomerInvoicesStream(userId: String, customerId: String): Flow<List<Invoice>> =
         invoiceDao.getInvoicesStreamForCustomer(customerId, userId)
-
     override fun getInvoiceWithDetails(invoiceId: String): Flow<Pair<Invoice?, List<InteractionLog>>> =
-        combine(
-            invoiceDao.getInvoiceById(invoiceId),
-            logDao.getLogsForInvoice(invoiceId)
-        ) { invoice, logs ->
+        combine(invoiceDao.getInvoiceById(invoiceId), logDao.getLogsForInvoice(invoiceId)) { invoice, logs ->
             invoice to logs
         }
-
     override fun getCustomerById(customerId: String): Flow<Customer?> = customerDao.getCustomerById(customerId)
 
-    // --- DATA OPERATIONS IMPLEMENTATION ---
     override suspend fun addInvoice(
-        userId: String, existingCustomerId: String?, customerName: String, customerPhone: String?, customerEmail: String?,
-        issueDate: LocalDate, dueDate: LocalDate, totalAmount: Double, imageBytes: ByteArray
+        userId: String, existingCustomerId: String?, customerName: String, customerPhone: String?,
+        customerEmail: String?, issueDate: LocalDate, dueDate: LocalDate, totalAmount: Double, imageBytes: ByteArray
     ): Result<Unit> = withContext(ioDispatcher) {
-        try {
-            // Validate inputs
-            if (customerName.isBlank()) {
-                throw IllegalArgumentException("Customer name cannot be empty")
-            }
-            if (totalAmount <= 0) {
-                throw IllegalArgumentException("Total amount must be greater than 0")
-            }
-            if (imageBytes.isEmpty()) {
-                throw IllegalArgumentException("Image data is required")
-            }
+        runCatching {
+            require(customerName.isNotBlank()) { "Customer name cannot be empty" }
+            require(totalAmount > 0) { "Total amount must be greater than zero" }
+            require(imageBytes.isNotEmpty()) { "Image data is required" }
 
             val customer = findOrCreateCustomer(userId, existingCustomerId, customerName, customerPhone, customerEmail)
             val imagePath = "$userId/${UUID.randomUUID()}.jpg"
             val newInvoice = Invoice(
-                id = UUID.randomUUID().toString(),
                 customerId = customer.id,
                 totalAmount = totalAmount,
                 issueDate = issueDate,
@@ -74,148 +64,122 @@ class RetailRepositoryImpl(
                 userId = userId
             )
 
-            // Perform network operations with proper error handling and rollback
-            var imageUploaded = false
-            var customerUpserted = false
-            
+            // Perform network operations with rollback logic for image upload.
             try {
-                // Upload image first (most likely to fail)
                 supabase.storage.from("invoice-scans").upload(imagePath, imageBytes)
-                imageUploaded = true
-                
-                // Upsert customer
                 supabase.from("customers").upsert(customer)
-                customerUpserted = true
-                
-                // Insert invoice
                 supabase.from("invoices").insert(newInvoice)
-                
-                // If all network ops succeed, update local cache
+
+                // If all network ops succeed, update local cache.
                 customerDao.upsert(listOf(customer))
                 invoiceDao.upsert(listOf(newInvoice))
-                
-                Result.success(Unit)
             } catch (e: Exception) {
-                // Rollback uploaded image if subsequent operations fail
-                if (imageUploaded) {
-                    try {
-                        supabase.storage.from("invoice-scans").delete(imagePath)
-                    } catch (rollbackException: Exception) {
-                        android.util.Log.w("RetailRepository", "Failed to rollback image upload", rollbackException)
-                    }
-                }
-                throw e
+                // Attempt to roll back the image upload on any subsequent failure.
+                runCatching { supabase.storage.from("invoice-scans").delete(imagePath) }
+                throw e // Re-throw original exception
             }
-        } catch (e: Exception) {
-            android.util.Log.e("RetailRepository", "Failed to add invoice", e)
-            Result.failure(mapExceptionToUserMessage(e, "Could not save the invoice."))
-        }
+        }.fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { Result.failure(mapException(it, "Could not save the invoice.")) }
+        )
     }
 
     private suspend fun findOrCreateCustomer(
         userId: String, existingId: String?, name: String, phone: String?, email: String?
     ): Customer {
-        if (existingId != null) {
-            // A selected existing customer might have updated info.
+        return if (existingId != null) {
             val existingCustomer = getCustomerById(existingId).first()
                 ?: throw IllegalStateException("Selected customer not found.")
-            return existingCustomer.copy(
+            existingCustomer.copy(
                 name = name.trim(),
                 phone = phone?.trim()?.takeIf { it.isNotBlank() },
                 email = email?.trim()?.takeIf { it.isNotBlank() }
             )
+        } else {
+            Customer(
+                name = name.trim(),
+                phone = phone?.trim()?.takeIf { it.isNotBlank() },
+                email = email?.trim()?.takeIf { it.isNotBlank() },
+                userId = userId
+            )
         }
-        return Customer(
-            name = name.trim(),
-            phone = phone?.trim()?.takeIf { it.isNotBlank() },
-            email = email?.trim()?.takeIf { it.isNotBlank() },
-            userId = userId
-        )
     }
 
-    // --- ATOMIC RPC-BASED OPERATIONS ---
-    // Using Supabase RPC functions is the only robust way to handle "read-modify-write"
-    // operations like adding a payment, preventing race conditions from multiple devices.
-
-    override suspend fun addPayment(userId: String, invoiceId: String, amount: Double, note: String?): Result<Unit> = withContext(ioDispatcher) {
+    // Using Supabase RPC is robust for atomic "read-modify-write" operations.
+    override suspend fun addPayment(userId: String, invoiceId: String, amount: Double, note: String?): Result<Unit> =
         handleRpc("add_payment", mapOf("p_invoice_id" to invoiceId, "p_amount" to amount, "p_note" to note), "Could not add payment.")
-    }
 
-    override suspend fun addNote(userId: String, invoiceId: String, note: String): Result<Unit> = withContext(ioDispatcher) {
+    override suspend fun addNote(userId: String, invoiceId: String, note: String): Result<Unit> =
         handleRpc("add_note", mapOf("p_invoice_id" to invoiceId, "p_note" to note), "Could not add note.")
-    }
 
-    override suspend fun postponeDueDate(userId: String, invoiceId: String, newDueDate: LocalDate, reason: String?): Result<Unit> = withContext(ioDispatcher) {
+    override suspend fun postponeDueDate(userId: String, invoiceId: String, newDueDate: LocalDate, reason: String?): Result<Unit> =
         handleRpc("postpone_due_date", mapOf("p_invoice_id" to invoiceId, "p_new_due_date" to newDueDate.toString(), "p_reason" to reason), "Could not postpone due date.")
-    }
 
-    private suspend fun handleRpc(functionName: String, params: Map<String, Any?>, errorMsg: String): Result<Unit> {
-        return try {
-            supabase.postgrest.rpc(functionName, kotlinx.serialization.json.buildJsonObject {
+    private suspend fun handleRpc(functionName: String, params: Map<String, Any?>, errorMsg: String): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val currentUser = supabase.auth.currentUserOrNull() ?: throw IllegalStateException("User not authenticated.")
+            supabase.postgrest.rpc(functionName, buildJsonObject {
                 params.forEach { (key, value) ->
                     when (value) {
-                        is String -> put(key, kotlinx.serialization.json.JsonPrimitive(value))
-                        is Number -> put(key, kotlinx.serialization.json.JsonPrimitive(value))
-                        is Boolean -> put(key, kotlinx.serialization.json.JsonPrimitive(value))
-                        null -> put(key, kotlinx.serialization.json.JsonNull)
-                        else -> put(key, kotlinx.serialization.json.JsonPrimitive(value.toString()))
+                        is String -> put(key, JsonPrimitive(value))
+                        is Number -> put(key, JsonPrimitive(value))
+                        is Boolean -> put(key, JsonPrimitive(value))
+                        null -> put(key, JsonNull)
+                        else -> put(key, JsonPrimitive(value.toString()))
                     }
                 }
             })
-            // After successful RPC, we must re-sync data to get the server-side changes.
-            syncAllUserData(supabase.auth.currentUserOrNull()!!.id)
-            Result.success(Unit)
-        } catch(e: Exception) {
-            Result.failure(mapExceptionToUserMessage(e, errorMsg))
-        }
+            // After successful RPC, re-sync data to get server-side changes.
+            syncAllUserData(currentUser.id).getOrThrow()
+        }.fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { Result.failure(mapException(it, errorMsg)) }
+        )
     }
-
 
     override suspend fun getPublicUrl(path: String): Result<String> = withContext(ioDispatcher) {
-        try {
-            // Using 1 hour for signed URLs is a good security practice.
-            val url = supabase.storage.from("invoice-scans").createSignedUrl(path, 1.hours)
-            Result.success(url)
-        } catch (e: Exception) {
-            Result.failure(mapExceptionToUserMessage(e, "Could not get image URL."))
-        }
+        runCatching {
+            // Signed URLs with a 1-hour expiry is a good security practice.
+            supabase.storage.from("invoice-scans").createSignedUrl(path, 1.hours)
+        }.fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { Result.failure(mapException(it, "Could not get image URL.")) }
+        )
     }
 
-    // --- SYNC & AUTH IMPLEMENTATION ---
     override suspend fun syncAllUserData(userId: String): Result<Unit> = withContext(ioDispatcher) {
-        try {
+        runCatching {
             coroutineScope {
                 // Fetch all user data in parallel for maximum efficiency.
-                val customersJob = async { supabase.from("customers").select { filter { eq("user_id", userId)} }.decodeList<Customer>() }
-                val invoicesJob = async { supabase.from("invoices").select { filter { eq("user_id", userId)} }.decodeList<Invoice>() }
-                val logsJob = async { supabase.from("interaction_logs").select { filter { eq("user_id", userId)} }.decodeList<InteractionLog>() }
+                val customersJob = async { supabase.from("customers").select { filter { eq("user_id", userId) } }.decodeList<Customer>() }
+                val invoicesJob = async { supabase.from("invoices").select { filter { eq("user_id", userId) } }.decodeList<Invoice>() }
+                val logsJob = async { supabase.from("interaction_logs").select { filter { eq("user_id", userId) } }.decodeList<InteractionLog>() }
 
                 // Await all jobs and then atomically update the local database.
                 customerDao.upsert(customersJob.await())
                 invoiceDao.upsert(invoicesJob.await())
                 logDao.upsert(logsJob.await())
             }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(mapExceptionToUserMessage(e, "Data sync failed."))
-        }
+        }.fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { Result.failure(mapException(it, "Data sync failed.")) }
+        )
     }
 
     override suspend fun signOut(userId: String): Result<Unit> = withContext(ioDispatcher) {
-        return@withContext try {
-            // First, attempt the network operation.
+        runCatching {
             supabase.auth.signOut()
-            // ONLY if the network call succeeds, clear the local data.
+            // Only if remote sign-out succeeds, clear local data.
             customerDao.clearForUser(userId)
             invoiceDao.clearForUser(userId)
             logDao.clearForUser(userId)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(mapExceptionToUserMessage(e, "Could not sign out."))
-        }
+        }.fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { Result.failure(mapException(it, "Could not sign out.")) }
+        )
     }
 
-    private fun mapExceptionToUserMessage(e: Exception, default: String): Exception {
-        return Exception(com.retailassistant.core.ErrorHandler.getErrorMessage(e, default), e)
+    private fun mapException(e: Throwable, default: String): Exception {
+        return Exception(ErrorHandler.getErrorMessage(e, default), e)
     }
 }

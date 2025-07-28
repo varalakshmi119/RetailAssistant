@@ -39,7 +39,7 @@ fun CustomerListScreen(
     }
 
     Scaffold(
-        topBar = { 
+        topBar = {
             CenteredTopAppBar(
                 title = "Customers",
                 actions = {
@@ -55,48 +55,48 @@ fun CustomerListScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-
-                SearchBar(
-                    value = state.searchQuery,
-                    onValueChange = { viewModel.sendAction(CustomerListAction.Search(it)) },
-                    placeholder = "Search by name, phone, or email...",
-                    modifier = Modifier.padding(16.dp)
+            SearchBar(
+                value = state.searchQuery,
+                onValueChange = { viewModel.sendAction(CustomerListAction.Search(it)) },
+                placeholder = "Search by name, phone, or email...",
+                modifier = Modifier.padding(16.dp)
+            )
+            if (state.isLoading) {
+                ShimmeringList()
+            } else if (state.filteredCustomers.isEmpty()) {
+                EmptyState(
+                    title = if (state.searchQuery.isNotEmpty()) "No customers found" else "No customers yet",
+                    subtitle = "Your customers will appear here.",
+                    icon = Icons.Default.PeopleOutline
                 )
-
-                if (state.isLoading) {
-                    ShimmeringList()
-                } else if (state.filteredCustomers.isEmpty()) {
-                    EmptyState(
-                        title = if (state.searchQuery.isNotEmpty()) "No customers found" else "No customers yet",
-                        subtitle = "Your customers will appear here.",
-                        icon = Icons.Default.PeopleOutline
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(state.filteredCustomers, key = { it.customer.id }) { customerWithStats ->
-                            CustomerCard(
-                                customer = customerWithStats.customer,
-                                stats = customerWithStats.stats,
-                                onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
-                                onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
-                                onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(state.filteredCustomers, key = { it.customer.id }) { customerWithStats ->
+                        CustomerCard(
+                            customer = customerWithStats.customer,
+                            stats = customerWithStats.stats,
+                            onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
+                            onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
+                            onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
             }
         }
     }
+}
 
 private fun openDialer(context: Context, phone: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
-    } catch (_: Exception) {}
+    } catch (_: Exception) {
+        // Fails silently if no dialer is available.
+    }
 }
 
 private suspend fun openEmail(context: Context, email: String, snackbar: SnackbarHostState) {
