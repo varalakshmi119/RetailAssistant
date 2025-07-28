@@ -75,13 +75,7 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val showSyncError = backStackEntry.arguments?.getBoolean("showSyncError") ?: false
                 MainScreenContainer(
-                    showSyncError = showSyncError,
-                    onLogout = {
-                        // After logout, the sessionStatus will change, and we navigate back to auth.
-                        navController.navigate(Screen.Auth.route) {
-                            popUpTo(Screen.Main.route) { inclusive = true }
-                        }
-                    }
+                    showSyncError = showSyncError
                 )
             }
         }
@@ -89,12 +83,11 @@ fun AppNavigation() {
 }
 
 @Composable
-private fun MainScreenContainer(showSyncError: Boolean, onLogout: () -> Unit) {
+private fun MainScreenContainer(showSyncError: Boolean) {
     val mainNavController = rememberNavController()
     val navBackStackEntry by mainNavController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val snackbarHostState = remember { SnackbarHostState() }
-
     val showBottomBarAndFab = currentDestination?.route in bottomNavItems.map { it.route }
 
     Scaffold(
@@ -123,7 +116,7 @@ private fun MainScreenContainer(showSyncError: Boolean, onLogout: () -> Unit) {
         },
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
-        MainAppNavHost(mainNavController, padding, onLogout, showSyncError, snackbarHostState)
+        MainAppNavHost(mainNavController, padding, showSyncError, snackbarHostState)
     }
 }
 
@@ -159,7 +152,6 @@ private fun AppBottomBar(navController: NavHostController, currentDestination: N
 private fun MainAppNavHost(
     navController: NavHostController,
     padding: PaddingValues,
-    onLogout: () -> Unit,
     showSyncError: Boolean,
     snackbarHostState: SnackbarHostState
 ) {
@@ -177,7 +169,6 @@ private fun MainAppNavHost(
         ) {
             DashboardScreen(
                 onNavigateToInvoiceDetail = { navController.navigate(Screen.InvoiceDetail.createRoute(it)) },
-                onLogout = onLogout,
                 showSyncError = showSyncError,
                 snackbarHostState = snackbarHostState
             )
@@ -194,7 +185,6 @@ private fun MainAppNavHost(
                 snackbarHostState = snackbarHostState
             )
         }
-
         composable(
             Screen.AddInvoice.route,
             enterTransition = { slideInVertically(animationSpec = tween(400)) { it } + fadeIn() },
@@ -205,7 +195,7 @@ private fun MainAppNavHost(
             InvoiceCreationScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable(
-            Screen.InvoiceDetail.route, 
+            Screen.InvoiceDetail.route,
             arguments = listOf(navArgument("invoiceId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(animationSpec = tween(350)) { it } },
             exitTransition = { slideOutHorizontally(animationSpec = tween(350)) { -it } },
@@ -216,7 +206,7 @@ private fun MainAppNavHost(
             InvoiceDetailScreen(invoiceId = id, onNavigateBack = { navController.popBackStack() })
         }
         composable(
-            Screen.CustomerDetail.route, 
+            Screen.CustomerDetail.route,
             arguments = listOf(navArgument("customerId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(animationSpec = tween(350)) { it } },
             exitTransition = { slideOutHorizontally(animationSpec = tween(350)) { -it } },

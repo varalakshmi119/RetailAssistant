@@ -3,7 +3,6 @@ package com.example.retailassistant.features.invoices
 import android.app.Application
 import android.net.Uri
 import android.util.Log
-import androidx.core.content.FileProvider
 import androidx.lifecycle.viewModelScope
 import com.example.retailassistant.core.ImageHandler
 import com.example.retailassistant.core.MviViewModel

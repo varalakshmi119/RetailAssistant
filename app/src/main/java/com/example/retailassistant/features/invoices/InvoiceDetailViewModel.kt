@@ -64,10 +64,11 @@ class InvoiceDetailViewModel(
         repository.getInvoiceWithDetails(invoiceId)
             .onEach { (invoice, logs) ->
                 sendAction(InvoiceDetailAction.DetailsLoaded(invoice to logs))
-                // When invoice details load, trigger loading of related data.
+
                 invoice?.let {
-                    loadCustomer(it.customerId)
-                    loadImage(it.originalScanUrl)
+                    // Launch these concurrently instead of sequentially
+                    viewModelScope.launch { loadCustomer(it.customerId) }
+                    viewModelScope.launch { loadImage(it.originalScanUrl) }
                 }
             }
             .launchIn(viewModelScope)

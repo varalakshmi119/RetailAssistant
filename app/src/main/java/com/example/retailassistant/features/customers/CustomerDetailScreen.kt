@@ -3,6 +3,7 @@ package com.example.retailassistant.features.customers
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -49,9 +50,12 @@ fun CustomerDetailScreen(
             )
         }
     ) { padding ->
-        if (state.isLoading) {
+        // The top-level loading state now only depends on the customer
+        if (state.isCustomerLoading) {
+            // Show the full-screen shimmer only on initial entry
             ShimmeringCustomerList(modifier = Modifier.padding(padding))
         } else if (state.customer == null) {
+            // If loading is finished but customer is null, they don't exist
             EmptyState(
                 title = "Customer Not Found",
                 subtitle = "The requested customer could not be found.",
@@ -59,13 +63,14 @@ fun CustomerDetailScreen(
                 modifier = Modifier.padding(padding)
             )
         } else {
+            // Once the customer is loaded, show the main content
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // These items render immediately once the customer is loaded
                 item { CustomerDetailHeader(state.customer!!) }
-
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         EnhancedStatCard(
@@ -83,32 +88,45 @@ fun CustomerDetailScreen(
                         )
                     }
                 }
-
                 item {
                     Text(
-                        "Invoices (${state.invoices.size})",
+                        "Invoices",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
 
-                if (state.invoices.isEmpty()) {
-                    item {
-                        EmptyState(
-                            title = "No Invoices",
-                            subtitle = "This customer does not have any invoices yet.",
-                            icon = Icons.AutoMirrored.Filled.ReceiptLong
+                // ** GRANULAR LOADING FOR INVOICES **
+                if (state.areInvoicesLoading) {
+                    // Show a shimmer FOR ONLY the invoice list
+                    items(3) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .shimmerBackground(RoundedCornerShape(20.dp))
                         )
                     }
                 } else {
-                    items(state.invoices, key = { it.id }) { invoice ->
-                        val friendlyDueDate = invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-                        InvoiceCard(
-                            invoice = invoice,
-                            customerName = state.customer?.name ?: "Unknown",
-                            friendlyDueDate = friendlyDueDate,
-                            onClick = { onNavigateToInvoiceDetail(invoice.id) }
-                        )
+                    // Once invoices are loaded, show them or the empty state
+                    if (state.invoices.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = "No Invoices",
+                                subtitle = "This customer does not have any invoices yet.",
+                                icon = Icons.AutoMirrored.Filled.ReceiptLong
+                            )
+                        }
+                    } else {
+                        items(state.invoices, key = { it.id }) { invoice ->
+                            val friendlyDueDate = invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+                            InvoiceCard(
+                                invoice = invoice,
+                                customerName = state.customer?.name ?: "Unknown",
+                                friendlyDueDate = friendlyDueDate,
+                                onClick = { onNavigateToInvoiceDetail(invoice.id) }
+                            )
+                        }
                     }
                 }
             }
