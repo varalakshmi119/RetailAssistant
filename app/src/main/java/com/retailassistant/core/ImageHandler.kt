@@ -22,10 +22,20 @@ class ImageHandler(private val context: Context) {
 
     suspend fun compressImageForUpload(imageUri: Uri): ByteArray? = withContext(Dispatchers.IO) {
         try {
+            // Validate URI accessibility first
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+                ?: throw IOException("Cannot access image URI")
+            inputStream.close()
+
             // First pass: Decode with inJustDecodeBounds=true to check dimensions without allocating memory.
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             context.contentResolver.openInputStream(imageUri)?.use {
                 BitmapFactory.decodeStream(it, null, options)
+            }
+
+            // Validate image dimensions
+            if (options.outWidth <= 0 || options.outHeight <= 0) {
+                throw IOException("Invalid image dimensions")
             }
 
             // Calculate the optimal `inSampleSize` to scale down the image.
@@ -35,12 +45,25 @@ class ImageHandler(private val context: Context) {
             options.inJustDecodeBounds = false
             context.contentResolver.openInputStream(imageUri)?.use { inputStream ->
                 val bitmap = BitmapFactory.decodeStream(inputStream, null, options)
+                    ?: throw IOException("Failed to decode image")
+                
                 ByteArrayOutputStream().use { baos ->
-                    bitmap?.compress(Bitmap.CompressFormat.JPEG, DOCUMENT_COMPRESSION_QUALITY, baos)
-                    baos.toByteArray()
+                    val success = bitmap.compress(Bitmap.CompressFormat.JPEG, DOCUMENT_COMPRESSION_QUALITY, baos)
+                    if (!success) {
+                        throw IOException("Failed to compress image")
+                    }
+                    val compressedBytes = baos.toByteArray()
+                    
+                    // Validate compressed size (max 10MB as per storage bucket limit)
+                    if (compressedBytes.size > 10 * 1024 * 1024) {
+                        throw IOException("Compressed image too large (${compressedBytes.size / 1024 / 1024}MB)")
+                    }
+                    
+                    compressedBytes
                 }
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
+            android.util.Log.e("ImageHandler", "Image compression failed", e)
             null
         }
     }

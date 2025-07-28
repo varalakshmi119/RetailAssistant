@@ -18,9 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
-
 val appModule = module {
-
     // --- SINGLETONS (Data & Core Layers) ---
     single { createSupabaseClient() }
     single { GeminiClient() }
@@ -30,12 +28,10 @@ val appModule = module {
             .fallbackToDestructiveMigration(false)
             .build()
     }
-
     // DAOs
     single { get<AppDatabase>().customerDao() }
     single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().interactionLogDao() }
-
     // Repository
     single<RetailRepository> {
         RetailRepositoryImpl(get(), get(), get(), get(), get(), Dispatchers.IO)
@@ -46,7 +42,7 @@ val appModule = module {
     viewModel { DashboardViewModel(get(), get()) }
     viewModel { InvoiceListViewModel(get(), get()) }
     viewModel { CustomerListViewModel(get(), get()) }
-    viewModel { InvoiceCreationViewModel(get(), get(), get(), get()) }
+    viewModel { params -> InvoiceCreationViewModel(get(), get(), get(), get(), params.get()) }
     viewModel { params -> InvoiceDetailViewModel(invoiceId = params.get(), repository = get()) }
     viewModel { params -> CustomerDetailViewModel(customerId = params.get(), repository = get()) }
 }

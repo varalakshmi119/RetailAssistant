@@ -24,7 +24,7 @@ abstract class MviViewModel<S : UiState, A : UiAction, E : UiEvent> : ViewModel(
     abstract fun createInitialState(): S
 
     private val _uiState: MutableStateFlow<S> = MutableStateFlow(initialState)
-    val uiState = _uiState.asStateFlow()
+    open val uiState = _uiState.asStateFlow()
 
     private val _action: MutableSharedFlow<A> = MutableSharedFlow(replay = 1)
 

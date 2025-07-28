@@ -54,9 +54,21 @@ class GeminiClient {
 
     suspend fun extractInvoiceData(imageBytes: ByteArray): Result<ExtractedInvoiceData> {
         return try {
+            // Validate API key
             if (apiKey.isBlank() || apiKey == "YOUR_API_KEY") {
                 throw IllegalStateException("Gemini API key is not configured in local.properties.")
             }
+            
+            // Validate image data
+            if (imageBytes.isEmpty()) {
+                throw IllegalArgumentException("Image data is empty")
+            }
+            
+            // Check image size (Gemini has limits)
+            if (imageBytes.size > 20 * 1024 * 1024) { // 20MB limit
+                throw IllegalArgumentException("Image too large for AI processing (${imageBytes.size / 1024 / 1024}MB)")
+            }
+            
             val base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
             val request = buildRequest(base64Image)
 
@@ -66,10 +78,26 @@ class GeminiClient {
             }.body()
 
             val extractedData = parseAndDecodeResponse(responseString)
+            
+            // Validate extracted data
+            if (extractedData.customerName.isNullOrBlank() && 
+                extractedData.totalAmount == null && 
+                extractedData.date.isNullOrBlank()) {
+                android.util.Log.w("GeminiClient", "AI extracted minimal data from image")
+            }
+            
             Result.success(extractedData)
         } catch (e: SocketTimeoutException) {
+            android.util.Log.e("GeminiClient", "AI service timeout", e)
             Result.failure(Exception("AI service timed out. Please try again."))
+        } catch (e: IllegalStateException) {
+            android.util.Log.e("GeminiClient", "Configuration error", e)
+            Result.failure(e)
+        } catch (e: IllegalArgumentException) {
+            android.util.Log.e("GeminiClient", "Invalid input", e)
+            Result.failure(e)
         } catch (e: Exception) {
+            android.util.Log.e("GeminiClient", "AI extraction failed", e)
             Result.failure(Exception("AI extraction failed: ${e.message ?: "An unknown error occurred."}"))
         }
     }

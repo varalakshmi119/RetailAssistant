@@ -7,9 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.*
 import androidx.navigation.compose.*
 import com.retailassistant.features.auth.AuthScreen
@@ -20,8 +18,10 @@ import com.retailassistant.features.invoices.creation.InvoiceCreationScreen
 import com.retailassistant.features.invoices.detail.InvoiceDetailScreen
 import com.retailassistant.features.invoices.list.InvoiceListScreen
 import com.retailassistant.ui.components.common.AppBottomBar
+import com.retailassistant.ui.components.common.FullScreenLoading
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import org.koin.compose.koinInject
 
 @Composable
@@ -30,12 +30,15 @@ fun AppNavigation() {
     val supabase: SupabaseClient = koinInject()
     val sessionStatus by supabase.auth.sessionStatus.collectAsState()
 
-    val startDestination by remember(sessionStatus) {
-        derivedStateOf {
-            if (supabase.auth.currentUserOrNull() != null) {
-                Screen.Dashboard.route
-            } else {
-                Screen.Auth.route
+    // This effect handles automatic navigation on auth state changes (e.g., logout).
+    LaunchedEffect(sessionStatus, navController) {
+        if (sessionStatus is SessionStatus.NotAuthenticated) {
+            // If the current route is part of the main app graph, navigate to auth.
+            // This prevents navigation loops if we're already on the auth screen.
+            if (navController.currentDestination?.parent?.route == Screen.Dashboard.route) {
+                navController.navigate(Screen.Auth.route) {
+                    popUpTo(Screen.Dashboard.route) { inclusive = true }
+                }
             }
         }
     }
@@ -46,8 +49,29 @@ fun AppNavigation() {
         Box(modifier = Modifier.padding(padding)) {
             NavHost(
                 navController = navController,
-                startDestination = startDestination
+                startDestination = "root_decider" // Use a static start destination
             ) {
+                // This is a transient screen. It decides where to go on a cold start
+                // and will not be on the back stack. This approach ensures that Compose
+                // Navigation can correctly restore the back stack after process death.
+                composable("root_decider") {
+                    val targetRoute = remember {
+                        if (supabase.auth.currentUserOrNull() != null) {
+                            Screen.Dashboard.route
+                        } else {
+                            Screen.Auth.route
+                        }
+                    }
+
+                    LaunchedEffect(Unit) {
+                        navController.navigate(targetRoute) {
+                            popUpTo("root_decider") { inclusive = true }
+                        }
+                    }
+                    // Show a loading screen while the navigation action is processed.
+                    FullScreenLoading()
+                }
+
                 authGraph(navController)
                 mainGraph(navController)
             }
@@ -128,7 +152,6 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
 private fun MainScreen(navController: NavHostController) {
     val mainNavController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
-
     Scaffold(
         bottomBar = { AppBottomBar(navController = mainNavController) },
         floatingActionButton = {
@@ -151,7 +174,6 @@ private fun MainScreen(navController: NavHostController) {
         ) {
             val enterTransition = fadeIn(tween(300))
             val exitTransition = fadeOut(tween(300))
-
             composable(Screen.Dashboard.route, enterTransition = { enterTransition }, exitTransition = { exitTransition }) {
                 DashboardScreen(
                     onNavigateToInvoice = { navController.navigate(Screen.InvoiceDetail.createRoute(it)) },

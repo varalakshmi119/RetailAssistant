@@ -51,6 +51,17 @@ class RetailRepositoryImpl(
         issueDate: LocalDate, dueDate: LocalDate, totalAmount: Double, imageBytes: ByteArray
     ): Result<Unit> = withContext(ioDispatcher) {
         try {
+            // Validate inputs
+            if (customerName.isBlank()) {
+                throw IllegalArgumentException("Customer name cannot be empty")
+            }
+            if (totalAmount <= 0) {
+                throw IllegalArgumentException("Total amount must be greater than 0")
+            }
+            if (imageBytes.isEmpty()) {
+                throw IllegalArgumentException("Image data is required")
+            }
+
             val customer = findOrCreateCustomer(userId, existingCustomerId, customerName, customerPhone, customerEmail)
             val imagePath = "$userId/${UUID.randomUUID()}.jpg"
             val newInvoice = Invoice(
@@ -63,16 +74,40 @@ class RetailRepositoryImpl(
                 userId = userId
             )
 
-            // Perform network operations first. If any fail, the whole operation rolls back.
-            supabase.storage.from("invoice-scans").upload(imagePath, imageBytes)
-            supabase.from("customers").upsert(customer)
-            supabase.from("invoices").insert(newInvoice)
-
-            // If network ops succeed, THEN update the local cache for an immediate UI update.
-            customerDao.upsert(listOf(customer))
-            invoiceDao.upsert(listOf(newInvoice))
-            Result.success(Unit)
+            // Perform network operations with proper error handling and rollback
+            var imageUploaded = false
+            var customerUpserted = false
+            
+            try {
+                // Upload image first (most likely to fail)
+                supabase.storage.from("invoice-scans").upload(imagePath, imageBytes)
+                imageUploaded = true
+                
+                // Upsert customer
+                supabase.from("customers").upsert(customer)
+                customerUpserted = true
+                
+                // Insert invoice
+                supabase.from("invoices").insert(newInvoice)
+                
+                // If all network ops succeed, update local cache
+                customerDao.upsert(listOf(customer))
+                invoiceDao.upsert(listOf(newInvoice))
+                
+                Result.success(Unit)
+            } catch (e: Exception) {
+                // Rollback uploaded image if subsequent operations fail
+                if (imageUploaded) {
+                    try {
+                        supabase.storage.from("invoice-scans").delete(imagePath)
+                    } catch (rollbackException: Exception) {
+                        android.util.Log.w("RetailRepository", "Failed to rollback image upload", rollbackException)
+                    }
+                }
+                throw e
+            }
         } catch (e: Exception) {
+            android.util.Log.e("RetailRepository", "Failed to add invoice", e)
             Result.failure(mapExceptionToUserMessage(e, "Could not save the invoice."))
         }
     }
@@ -181,10 +216,6 @@ class RetailRepositoryImpl(
     }
 
     private fun mapExceptionToUserMessage(e: Exception, default: String): Exception {
-        return when (e) {
-            is HttpRequestException -> Exception("Network request failed. Please check your connection.", e)
-            is RestException -> Exception(e.message ?: "A database error occurred.", e)
-            else -> Exception(e.message ?: default, e)
-        }
+        return Exception(com.retailassistant.core.ErrorHandler.getErrorMessage(e, default), e)
     }
 }

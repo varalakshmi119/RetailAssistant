@@ -1,15 +1,37 @@
 package com.retailassistant.data.db
 
 import androidx.room.*
-import kotlinx.serialization.Contextual
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.time.LocalDate
 import java.util.UUID
 
 // This file centralizes all Room entities and related enums/converters.
 // Models are shared between Room and Supabase for serialization consistency.
 // Indices are added for production-grade performance on large datasets.
+
+// --- CUSTOM SERIALIZER FOR LocalDate ---
+// This tells kotlinx.serialization how to convert LocalDate to a String and back.
+// This is the key fix for the SerializationException.
+object LocalDateSerializer : KSerializer<LocalDate> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: LocalDate) {
+        // LocalDate.toString() conveniently produces "YYYY-MM-DD" format
+        encoder.encodeString(value.toString())
+    }
+
+    override fun deserialize(decoder: Decoder): LocalDate {
+        // LocalDate.parse() can read "YYYY-MM-DD" format
+        return LocalDate.parse(decoder.decodeString())
+    }
+}
 
 enum class InvoiceStatus { UNPAID, PAID, OVERDUE, PARTIALLY_PAID }
 enum class InteractionType { NOTE, PAYMENT, DUE_DATE_CHANGED }
@@ -31,8 +53,15 @@ data class Invoice(
     @SerialName("customer_id") val customerId: String,
     @SerialName("total_amount") val totalAmount: Double,
     @SerialName("amount_paid") val amountPaid: Double = 0.0,
-    @SerialName("issue_date") @Contextual val issueDate: LocalDate,
-    @SerialName("due_date") @Contextual val dueDate: LocalDate,
+
+    // **MODIFIED**: Replaced @Contextual with the explicit custom serializer.
+    @Serializable(with = LocalDateSerializer::class)
+    @SerialName("issue_date") val issueDate: LocalDate,
+
+    // **MODIFIED**: Replaced @Contextual with the explicit custom serializer.
+    @Serializable(with = LocalDateSerializer::class)
+    @SerialName("due_date") val dueDate: LocalDate,
+
     val status: InvoiceStatus = InvoiceStatus.UNPAID,
     @SerialName("original_scan_url") val originalScanUrl: String,
     @SerialName("created_at") val createdAt: Long = System.currentTimeMillis(),
