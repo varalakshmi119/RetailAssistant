@@ -1,13 +1,15 @@
 package com.retailassistant.features.customers
 
 import androidx.lifecycle.viewModelScope
-import com.retailassistant.core.*
+import com.retailassistant.core.MviViewModel
+import com.retailassistant.core.UiAction
+import com.retailassistant.core.UiEvent
+import com.retailassistant.core.UiState
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.repository.RetailRepository
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 
 data class CustomerDetailState(
     val customer: Customer? = null,
