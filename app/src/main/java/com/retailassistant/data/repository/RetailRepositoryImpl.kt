@@ -1,7 +1,8 @@
 package com.retailassistant.data.repository
-
+import androidx.room.withTransaction
 import com.retailassistant.core.ErrorHandler
 import com.retailassistant.core.NetworkUtils
+import com.retailassistant.data.db.AppDatabase
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.CustomerDao
 import com.retailassistant.data.db.InteractionLog
@@ -28,11 +29,13 @@ import kotlin.time.Duration.Companion.hours
 
 class RetailRepositoryImpl(
     private val supabase: SupabaseClient,
-    private val invoiceDao: InvoiceDao,
-    private val customerDao: CustomerDao,
-    private val logDao: InteractionLogDao,
+    private val db: AppDatabase, // Changed from individual DAOs to the AppDatabase
     private val ioDispatcher: CoroutineDispatcher
 ) : RetailRepository {
+    // DAOs are now accessed via the db instance
+    private val invoiceDao: InvoiceDao = db.invoiceDao()
+    private val customerDao: CustomerDao = db.customerDao()
+    private val logDao: InteractionLogDao = db.interactionLogDao()
     override fun getInvoicesStream(userId: String): Flow<List<Invoice>> = invoiceDao.getInvoicesStream(userId)
     override fun getCustomersStream(userId: String): Flow<List<Customer>> = customerDao.getCustomersStream(userId)
     override fun getCustomerInvoicesStream(userId: String, customerId: String): Flow<List<Invoice>> =
@@ -65,11 +68,9 @@ class RetailRepositoryImpl(
                 })
                 syncAllUserData(userId).getOrThrow()
             } catch (dbException: Exception) {
-                // Attempt to clean up orphaned image, log if it fails.
                 runCatching {
                     supabase.storage.from("invoice-scans").delete(imagePath)
                 }.onFailure { cleanupException ->
-                    // Log or report this error, as you now have an orphaned file.
                     println("Failed to cleanup orphaned image: $imagePath. Error: ${cleanupException.message}")
                 }
                 throw dbException
@@ -87,11 +88,10 @@ class RetailRepositoryImpl(
         handleRpc("postpone_due_date", mapOf("p_invoice_id" to invoiceId, "p_new_due_date" to newDueDate.toString(), "p_reason" to reason), "Could not postpone due date.", userId)
     override suspend fun deleteInvoice(invoiceId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
-            val userId = supabase.auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not authenticated.")
+            supabase.auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not authenticated.")
             supabase.postgrest.rpc("delete_invoice", buildJsonObject {
                 put("p_invoice_id", JsonPrimitive(invoiceId))
             })
-            // This local delete will trigger a cascade delete of logs due to the new ForeignKey constraint
             invoiceDao.deleteById(invoiceId)
         }.fold(
             onSuccess = { Result.success(Unit) },
@@ -100,11 +100,10 @@ class RetailRepositoryImpl(
     }
     override suspend fun deleteCustomer(customerId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
-            val userId = supabase.auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not authenticated.")
+            supabase.auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not authenticated.")
             supabase.postgrest.rpc("delete_customer", buildJsonObject {
                 put("p_customer_id", JsonPrimitive(customerId))
             })
-            // This local delete will trigger a cascade delete of invoices and their logs
             customerDao.deleteById(customerId)
         }.fold(
             onSuccess = { Result.success(Unit) },
@@ -143,26 +142,25 @@ class RetailRepositoryImpl(
     override suspend fun syncAllUserData(userId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             coroutineScope {
-                // Fetch remote data
                 val customersJob = async { supabase.from("customers").select { filter { eq("user_id", userId) } }.decodeList<Customer>() }
                 val invoicesJob = async { supabase.from("invoices").select { filter { eq("user_id", userId) } }.decodeList<Invoice>() }
                 val logsJob = async { supabase.from("interaction_logs").select { filter { eq("user_id", userId) } }.decodeList<InteractionLog>() }
                 val remoteCustomers = customersJob.await()
                 val remoteInvoices = invoicesJob.await()
                 val remoteLogs = logsJob.await()
-                // Smart local cleanup: remove items that no longer exist on the server
-                val remoteCustomerIds = remoteCustomers.map { it.id }.toSet()
-                val localCustomerIds = customerDao.getCustomerIdsForUser(userId)
-                localCustomerIds.filterNot { it in remoteCustomerIds }.forEach { customerDao.deleteById(it) } // This will cascade delete invoices
-
-                val remoteInvoiceIds = remoteInvoices.map { it.id }.toSet()
-                val localInvoiceIds = invoiceDao.getInvoiceIdsForUser(userId)
-                localInvoiceIds.filterNot { it in remoteInvoiceIds }.forEach { invoiceDao.deleteById(it) } // This will cascade delete logs
-
-                // Upsert fresh data
-                customerDao.upsert(remoteCustomers)
-                invoiceDao.upsert(remoteInvoices)
-                logDao.upsert(remoteLogs)
+                db.withTransaction {
+                    // Smart local cleanup: remove items that no longer exist on the server
+                    val remoteCustomerIds = remoteCustomers.map { it.id }.toSet()
+                    val localCustomerIds = customerDao.getCustomerIdsForUser(userId)
+                    localCustomerIds.filterNot { it in remoteCustomerIds }.forEach { customerDao.deleteById(it) } // Cascade deletes invoices
+                    val remoteInvoiceIds = remoteInvoices.map { it.id }.toSet()
+                    val localInvoiceIds = invoiceDao.getInvoiceIdsForUser(userId)
+                    localInvoiceIds.filterNot { it in remoteInvoiceIds }.forEach { invoiceDao.deleteById(it) } // Cascade deletes logs
+                    // Upsert fresh data
+                    customerDao.upsert(remoteCustomers)
+                    invoiceDao.upsert(remoteInvoices)
+                    logDao.upsert(remoteLogs)
+                }
             }
         }.fold(
             onSuccess = { Result.success(Unit) },
@@ -172,17 +170,17 @@ class RetailRepositoryImpl(
     override suspend fun signOut(userId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             supabase.auth.signOut()
-            customerDao.clearForUser(userId)
-            invoiceDao.clearForUser(userId)
-            logDao.clearForUser(userId)
+            db.withTransaction {
+                customerDao.clearForUser(userId)
+                invoiceDao.clearForUser(userId)
+                logDao.clearForUser(userId)
+            }
         }.fold(
             onSuccess = { Result.success(Unit) },
             onFailure = { Result.failure(mapException(it, "Could not sign out.")) }
         )
     }
     private fun mapException(e: Throwable, default: String): Throwable {
-        // IMPROVEMENT: Return a new exception with a user-friendly message, but keep the original
-        // cause for debugging. The ViewModel will show the message.
         return Exception(ErrorHandler.getErrorMessage(e, default), e)
     }
 }

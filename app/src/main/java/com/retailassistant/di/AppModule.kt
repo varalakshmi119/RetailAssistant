@@ -1,5 +1,4 @@
 package com.retailassistant.di
-
 import androidx.room.Room
 import androidx.work.WorkManager
 import com.retailassistant.core.ImageHandler
@@ -24,11 +23,8 @@ import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
-
 val appModule = module {
-
     // --- SINGLETONS (Data & Core Layers) ---
-
     // Networking
     single { createAppSupabaseClient() }
     single {
@@ -47,31 +43,26 @@ val appModule = module {
         }
     }
     single { GeminiClient(get()) }
-
     // Core
     single { ImageHandler(androidApplication()) }
     single { WorkManager.getInstance(androidApplication()) }
-
     // Database & Repository
-    single<RetailRepository> { RetailRepositoryImpl(get(), get(), get(), get(), Dispatchers.IO) }
+    // The repository now takes the whole AppDatabase instance to allow for transactions.
+    single<RetailRepository> { RetailRepositoryImpl(get(), get(), Dispatchers.IO) }
     single {
         Room.databaseBuilder(androidApplication(), AppDatabase::class.java, "retailassistant.db")
             .fallbackToDestructiveMigration(false)
             .build()
     }
-
     // DAOs
     single { get<AppDatabase>().customerDao() }
     single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().interactionLogDao() }
-
     // --- VIEWMODELS ---
-
     viewModel { AuthViewModel(get(), get()) }
     viewModel { DashboardViewModel(get(), get()) }
     viewModel { InvoiceListViewModel(get(), get()) }
     viewModel { CustomerListViewModel(get(), get()) }
-
     viewModel { params ->
         InvoiceCreationViewModel(
             savedStateHandle = params.get(),
@@ -81,7 +72,6 @@ val appModule = module {
             supabase = get()
         )
     }
-
     viewModel { params ->
         InvoiceDetailViewModel(
             invoiceId = params.get(),
@@ -89,7 +79,6 @@ val appModule = module {
             supabase = get()
         )
     }
-
     viewModel { params ->
         CustomerDetailViewModel(
             customerId = params.get(),
