@@ -9,8 +9,9 @@ import io.github.jan.supabase.storage.Storage
 
 /**
  * Factory function to create and configure the SupabaseClient singleton.
+ * This centralized creation ensures consistent configuration across the app.
  */
-fun createSupabaseClient(): SupabaseClient {
+fun createAppSupabaseClient(): SupabaseClient {
     return createSupabaseClient(
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseKey = BuildConfig.SUPABASE_KEY

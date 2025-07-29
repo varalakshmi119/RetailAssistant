@@ -1,4 +1,5 @@
 package com.retailassistant.data.db
+
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -14,27 +15,29 @@ import kotlinx.serialization.encoding.Encoder
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
+
 // Models are shared between Room and Supabase for serialization consistency.
 // Indices are added for production-grade performance on large datasets.
+
 object LocalDateSerializer : KSerializer<LocalDate> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
     override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeString(value.toString())
     override fun deserialize(decoder: Decoder): LocalDate = LocalDate.parse(decoder.decodeString())
 }
-// MODIFIED: Added a custom serializer to handle Supabase's 'timestamptz' format
+
 object TimestamptzToLongSerializer : KSerializer<Long> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("timestamptz", PrimitiveKind.STRING)
     override fun deserialize(decoder: Decoder): Long {
-        // Supabase timestamptz is a string in ISO 8601 format
         return Instant.parse(decoder.decodeString()).toEpochMilli()
     }
     override fun serialize(encoder: Encoder, value: Long) {
-        // When sending data, convert epoch milliseconds back to an ISO 8601 string
         encoder.encodeString(Instant.ofEpochMilli(value).toString())
     }
 }
+
 enum class InvoiceStatus { UNPAID, PAID, OVERDUE, PARTIALLY_PAID }
 enum class InteractionType { NOTE, PAYMENT, DUE_DATE_CHANGED }
+
 @Serializable
 @Entity(tableName = "customers", indices = [Index(value = ["userId"])])
 data class Customer(
@@ -44,6 +47,7 @@ data class Customer(
     val email: String?,
     @SerialName("user_id") val userId: String
 )
+
 @Serializable
 @Entity(
     tableName = "invoices",
@@ -58,7 +62,6 @@ data class Invoice(
     @Serializable(with = LocalDateSerializer::class) @SerialName("due_date") val dueDate: LocalDate,
     val status: InvoiceStatus = InvoiceStatus.UNPAID,
     @SerialName("original_scan_url") val originalScanUrl: String,
-    // MODIFIED: Applied the custom serializer
     @Serializable(with = TimestamptzToLongSerializer::class) @SerialName("created_at") val createdAt: Long = System.currentTimeMillis(),
     @SerialName("user_id") val userId: String
 ) {
@@ -67,6 +70,7 @@ data class Invoice(
     val balanceDue: Double
         get() = (totalAmount - amountPaid).coerceAtLeast(0.0)
 }
+
 @Serializable
 @Entity(
     tableName = "interaction_logs",
@@ -79,9 +83,9 @@ data class InteractionLog(
     val type: InteractionType,
     val notes: String?,
     val value: Double?, // e.g., payment amount
-    // MODIFIED: Applied the custom serializer
     @Serializable(with = TimestamptzToLongSerializer::class) @SerialName("created_at") val createdAt: Long = System.currentTimeMillis()
 )
+
 /**
  * Data Transfer Object for Gemini API responses.
  */
@@ -94,12 +98,14 @@ data class ExtractedInvoiceData(
     val email: String?,
     @SerialName("total_amount") val totalAmount: Double?
 )
+
 /**
  * Type converters for Room to handle LocalDate.
  */
 class DateConverter {
     @TypeConverter
     fun toDate(dateLong: Long?): LocalDate? = dateLong?.let { LocalDate.ofEpochDay(it) }
+
     @TypeConverter
     fun fromDate(date: LocalDate?): Long? = date?.toEpochDay()
 }

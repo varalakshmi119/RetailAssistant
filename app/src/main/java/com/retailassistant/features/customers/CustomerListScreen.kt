@@ -1,4 +1,5 @@
 package com.retailassistant.features.customers
+
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -6,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -62,13 +62,7 @@ fun CustomerListScreen(
                         onClick = { viewModel.sendAction(CustomerListAction.RefreshData) },
                         enabled = !state.isRefreshing
                     ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            modifier = if (state.isRefreshing) {
-                                Modifier.size(20.dp)
-                            } else Modifier
-                        )
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                 }
             )
@@ -78,38 +72,41 @@ fun CustomerListScreen(
             SearchBar(
                 value = state.searchQuery,
                 onValueChange = { viewModel.sendAction(CustomerListAction.Search(it)) },
-                placeholder = "Search by name, phone, or email...",
+                placeholder = "Search by name or phone...",
                 modifier = Modifier.padding(16.dp)
             )
-
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.sendAction(CustomerListAction.RefreshData) },
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (state.isLoading && state.filteredCustomers.isEmpty()) {
-                    ShimmeringList()
-                } else if (state.filteredCustomers.isEmpty()) {
-                    EmptyState(
-                        title = if (state.searchQuery.isNotEmpty()) "No customers found" else "No customers yet",
-                        subtitle = "Your customers will appear here.",
-                        icon = Icons.Default.PeopleOutline
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(state.filteredCustomers, key = { it.customer.id }) { customerWithStats ->
-                            CustomerCard(
-                                customer = customerWithStats.customer,
-                                stats = customerWithStats.stats,
-                                onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
-                                onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
-                                onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
-                                modifier = Modifier.animateItem()
-                            )
+                when {
+                    state.isLoading && state.filteredCustomers.isEmpty() -> {
+                        ShimmeringList()
+                    }
+                    state.filteredCustomers.isEmpty() -> {
+                        EmptyState(
+                            title = if (state.searchQuery.isNotEmpty()) "No customers found" else "No customers yet",
+                            subtitle = "Your customers will appear here.",
+                            icon = Icons.Default.PeopleOutline
+                        )
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(state.filteredCustomers, key = { it.customer.id }) { customerWithStats ->
+                                CustomerCard(
+                                    customer = customerWithStats.customer,
+                                    stats = customerWithStats.stats,
+                                    onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
+                                    onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
+                                    onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }

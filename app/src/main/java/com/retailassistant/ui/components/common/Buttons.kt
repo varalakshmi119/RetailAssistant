@@ -1,12 +1,27 @@
 package com.retailassistant.ui.components.common
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -45,7 +60,7 @@ fun GradientButton(
             .background(brush, shape = MaterialTheme.shapes.medium)
             .clickable(
                 interactionSource = interactionSource,
-                indication = null, // Using a custom or no ripple
+                indication = null,
                 enabled = enabled && !isLoading,
                 onClick = onClick
             ),
@@ -53,7 +68,7 @@ fun GradientButton(
     ) {
         AnimatedContent(
             targetState = isLoading,
-            transitionSpec = { (fadeIn() + scaleIn()).togetherWith(fadeOut() + scaleOut()) },
+            transitionSpec = { scaleIn() togetherWith scaleOut() },
             label = "GradientButtonLoading"
         ) { loading ->
             if (loading) {

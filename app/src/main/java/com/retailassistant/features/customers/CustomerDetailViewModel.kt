@@ -1,4 +1,5 @@
 package com.retailassistant.features.customers
+
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -11,51 +12,59 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-// MODIFIED: Added dialog and processing state
+
 sealed class CustomerDetailDialog {
     data object ConfirmDeleteCustomer : CustomerDetailDialog()
 }
+
 data class CustomerDetailState(
     val customer: Customer? = null,
     val invoices: List<Invoice> = emptyList(),
     val isLoading: Boolean = true,
     val totalBilled: Double = 0.0,
     val totalOutstanding: Double = 0.0,
-    // MODIFIED: Added dialog and processing state
     val activeDialog: CustomerDetailDialog? = null,
     val isProcessingAction: Boolean = false
 ) : UiState
+
 sealed interface CustomerDetailAction : UiAction {
     data class DataLoaded(val customer: Customer?, val invoices: List<Invoice>) : CustomerDetailAction
-    // MODIFIED: Added actions for deletion
     data class ShowDialog(val dialog: CustomerDetailDialog?) : CustomerDetailAction
-    object DeleteCustomer : CustomerDetailAction
+    object ConfirmDeleteCustomer : CustomerDetailAction
 }
-// MODIFIED: Added NavigateBack event
+
 sealed interface CustomerDetailEvent : UiEvent {
     object NavigateBack : CustomerDetailEvent
     data class ShowMessage(val message: String) : CustomerDetailEvent
 }
+
 class CustomerDetailViewModel(
-    private val customerId: String, // Made it a property for delete action
+    private val customerId: String,
     private val repository: RetailRepository,
     supabase: SupabaseClient
 ) : MviViewModel<CustomerDetailState, CustomerDetailAction, CustomerDetailEvent>() {
+
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
+
     init {
         if (userId != null) {
             val customerStream = repository.getCustomerById(customerId)
             val invoicesStream = repository.getCustomerInvoicesStream(userId, customerId)
+
             customerStream.combine(invoicesStream) { customer, invoices ->
-                sendAction(CustomerDetailAction.DataLoaded(customer, invoices))
-            }.launchIn(viewModelScope)
+                CustomerDetailAction.DataLoaded(customer, invoices)
+            }.onEach { sendAction(it) }
+            .launchIn(viewModelScope)
         } else {
-            // Handle case where user is not authenticated.
             setState { copy(isLoading = false) }
+            sendEvent(CustomerDetailEvent.ShowMessage("User not authenticated."))
         }
     }
+
     override fun createInitialState(): CustomerDetailState = CustomerDetailState()
+
     override fun handleAction(action: CustomerDetailAction) {
         when (action) {
             is CustomerDetailAction.DataLoaded -> {
@@ -71,11 +80,11 @@ class CustomerDetailViewModel(
                     )
                 }
             }
-            // MODIFIED: Handle delete actions
             is CustomerDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog, isProcessingAction = false) }
-            is CustomerDetailAction.DeleteCustomer -> deleteCustomer()
+            is CustomerDetailAction.ConfirmDeleteCustomer -> deleteCustomer()
         }
     }
+
     private fun deleteCustomer() {
         viewModelScope.launch {
             setState { copy(isProcessingAction = true) }
@@ -86,6 +95,7 @@ class CustomerDetailViewModel(
             }.onFailure {
                 sendEvent(CustomerDetailEvent.ShowMessage(it.message ?: "Failed to delete customer"))
             }
+            // State is reset whether it succeeds or fails. If it succeeds, we navigate away anyway.
             setState { copy(isProcessingAction = false, activeDialog = null) }
         }
     }

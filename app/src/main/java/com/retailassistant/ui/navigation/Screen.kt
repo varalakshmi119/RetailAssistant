@@ -8,14 +8,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * A sealed class representing all unique destinations in the app for type-safe navigation.
+ * Routes are structured hierarchically for better organization and back-stack management.
  */
 sealed class Screen(val route: String) {
-    data object Auth : Screen("auth")
+    // Top-level navigation graphs
+    data object Auth : Screen("auth_graph") {
+        data object Login : Screen("auth_graph/login")
+    }
+    data object Main : Screen("main_graph") {
+        data object Content : Screen("main_graph/content")
+    }
+
+    // Bottom navigation items
     data object Dashboard : Screen("dashboard")
     data object Invoices : Screen("invoices")
     data object Customers : Screen("customers")
-    data object InvoiceCreation : Screen("invoice_creation")
 
+    // Detail/Creation screens
+    data object InvoiceCreation : Screen("invoice_creation")
     data object InvoiceDetail : Screen("invoice_detail/{invoiceId}") {
         fun createRoute(invoiceId: String) = "invoice_detail/$invoiceId"
     }

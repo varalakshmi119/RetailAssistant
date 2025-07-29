@@ -1,7 +1,10 @@
 package com.retailassistant.features.dashboard
 
 import androidx.lifecycle.viewModelScope
-import com.retailassistant.core.*
+import com.retailassistant.core.MviViewModel
+import com.retailassistant.core.UiAction
+import com.retailassistant.core.UiEvent
+import com.retailassistant.core.UiState
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.repository.RetailRepository
@@ -9,6 +12,8 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class InvoiceWithCustomer(
@@ -47,14 +52,13 @@ class DashboardViewModel(
         setState { copy(userName = user?.email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }) }
 
         if (userId != null) {
-            viewModelScope.launch {
-                repository.getInvoicesStream(userId)
-                    .combine(repository.getCustomersStream(userId)) { invoices, customers ->
-                        DashboardAction.DataLoaded(invoices, customers)
-                    }
-                    .catch { e -> sendEvent(DashboardEvent.ShowError(e.message ?: "Failed to load data")) }
-                    .collect { sendAction(it) }
-            }
+            repository.getInvoicesStream(userId)
+                .combine(repository.getCustomersStream(userId)) { invoices, customers ->
+                    DashboardAction.DataLoaded(invoices, customers)
+                }
+                .catch { e -> sendEvent(DashboardEvent.ShowError(e.message ?: "Failed to load data")) }
+                .onEach { sendAction(it) }
+                .launchIn(viewModelScope)
 
             refreshData(isInitial = true)
         } else {
@@ -77,7 +81,6 @@ class DashboardViewModel(
         val invoicesWithCustomers = invoices.map { invoice ->
             InvoiceWithCustomer(invoice, customerMap[invoice.customerId])
         }
-
         setState {
             copy(
                 invoicesWithCustomers = invoicesWithCustomers.take(10), // Show most recent 10
@@ -95,7 +98,6 @@ class DashboardViewModel(
             if (!isInitial) setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(DashboardEvent.ShowError(error.message ?: "Sync failed"))
-                // Refreshing state is reset by `updateStateWithData` on success
                 if (!isInitial) setState { copy(isRefreshing = false) }
             }
         }

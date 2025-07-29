@@ -17,12 +17,12 @@ class ImageHandler(private val context: Context) {
 
     private companion object {
         private const val TARGET_WIDTH = 1080
-        private const val COMPRESSION_QUALITY = 90
-        private const val MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+        private const val COMPRESSION_QUALITY = 80
+        private const val MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
     }
 
-    suspend fun compressImageForUpload(imageUri: Uri): ByteArray? = withContext(Dispatchers.IO) {
-        try {
+    suspend fun compressImageForUpload(imageUri: Uri): Result<ByteArray> = withContext(Dispatchers.IO) {
+        runCatching {
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
             }
@@ -45,20 +45,17 @@ class ImageHandler(private val context: Context) {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, COMPRESSION_QUALITY, baos)
                 val compressedBytes = baos.toByteArray()
                 if (compressedBytes.size > MAX_FILE_SIZE_BYTES) {
-                    throw IOException("Compressed image is too large.")
+                    throw IOException("Compressed image is too large (${compressedBytes.size / 1024}KB). Max size is ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB.")
                 }
                 compressedBytes
             }
-        } catch (e: Exception) {
-            // Log for debug builds, but return null for production
-            // android.util.Log.e("ImageHandler", "Image compression failed", e)
-            null
         }
     }
 
     private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int): Int {
         val (height: Int, width: Int) = options.outHeight to options.outWidth
         var inSampleSize = 1
+
         if (height > reqWidth || width > reqWidth) {
             val halfHeight: Int = height / 2
             val halfWidth: Int = width / 2

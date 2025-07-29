@@ -1,11 +1,18 @@
 package com.retailassistant
 
 import android.app.Application
-import androidx.work.*
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkRequest
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.retailassistant.data.image.SupabaseUrlKeyer
 import com.retailassistant.di.appModule
 import com.retailassistant.workers.NotificationWorker
 import org.koin.android.ext.koin.androidContext
@@ -39,17 +46,20 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             NotificationWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP, // Keep existing work if already scheduled
+            ExistingPeriodicWorkPolicy.KEEP,
             periodicWorkRequest
         )
     }
 
     /**
-     * Provides a custom Coil ImageLoader to configure a robust disk cache,
-     * which is crucial for caching Supabase's signed image URLs.
+     * Provides a custom Coil ImageLoader to configure a robust disk cache and a custom keyer.
+     * The SupabaseUrlKeyer is crucial for caching Supabase's signed image URLs effectively.
      */
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
+            .components {
+                add(SupabaseUrlKeyer())
+            }
             .memoryCache {
                 MemoryCache.Builder(this)
                     .maxSizePercent(0.25) // Use 25% of app's available memory
@@ -58,10 +68,10 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
             .diskCache {
                 DiskCache.Builder()
                     .directory(this.cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(100 * 1024 * 1024) // 100 MB disk cache
+                    .maxSizeBytes(100L * 1024 * 1024) // 100 MB disk cache
                     .build()
             }
-            .respectCacheHeaders(false) // Allows caching of temporary URLs
+            .respectCacheHeaders(false) // Allows caching of temporary URLs by using our keyer
             .build()
     }
 }

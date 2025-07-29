@@ -1,13 +1,37 @@
 package com.retailassistant.features.customers
-import androidx.compose.foundation.layout.*
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.PeopleOutline
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,13 +40,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.retailassistant.core.Utils.formatCurrency
-import com.retailassistant.ui.components.common.*
+import com.retailassistant.ui.components.common.CenteredTopAppBar
+import com.retailassistant.ui.components.common.ConfirmDeleteDialog
+import com.retailassistant.ui.components.common.EmptyState
+import com.retailassistant.ui.components.common.FullScreenLoading
 import com.retailassistant.ui.components.specific.Avatar
 import com.retailassistant.ui.components.specific.InfoChip
 import com.retailassistant.ui.components.specific.InvoiceCard
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.time.format.DateTimeFormatter
+
 @Composable
 fun CustomerDetailScreen(
     customerId: String,
@@ -32,7 +60,7 @@ fun CustomerDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    // MODIFIED: Handle new events
+
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -41,16 +69,17 @@ fun CustomerDetailScreen(
             }
         }
     }
-    // MODIFIED: Handle dialogs
+
     if (state.activeDialog == CustomerDetailDialog.ConfirmDeleteCustomer) {
         ConfirmDeleteDialog(
             title = "Delete Customer?",
             text = "This will also delete all of their invoices. This action cannot be undone.",
             onDismiss = { viewModel.sendAction(CustomerDetailAction.ShowDialog(null)) },
-            onConfirm = { viewModel.sendAction(CustomerDetailAction.DeleteCustomer) },
+            onConfirm = { viewModel.sendAction(CustomerDetailAction.ConfirmDeleteCustomer) },
             isProcessing = state.isProcessingAction
         )
     }
+
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -60,7 +89,6 @@ fun CustomerDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
-                // MODIFIED: Added delete action
                 actions = {
                     if (state.customer != null) {
                         IconButton(onClick = { viewModel.sendAction(CustomerDetailAction.ShowDialog(CustomerDetailDialog.ConfirmDeleteCustomer)) }) {
@@ -85,7 +113,13 @@ fun CustomerDetailScreen(
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             StatCard("Total Billed", formatCurrency(state.totalBilled), Icons.Default.AccountBalanceWallet, Modifier.weight(1f))
-                            StatCard("Outstanding", formatCurrency(state.totalOutstanding), Icons.Default.HourglassTop, Modifier.weight(1f), if (state.totalOutstanding > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
+                            StatCard(
+                                "Outstanding",
+                                formatCurrency(state.totalOutstanding),
+                                Icons.Default.HourglassTop,
+                                Modifier.weight(1f),
+                                if (state.totalOutstanding > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+                            )
                         }
                     }
                     item {
@@ -112,9 +146,10 @@ fun CustomerDetailScreen(
         }
     }
 }
+
 @Composable
 private fun CustomerDetailHeader(state: CustomerDetailState) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(modifier = Modifier.fillMaxSize()) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(name = state.customer!!.name, size = 64.dp)
@@ -130,6 +165,7 @@ private fun CustomerDetailHeader(state: CustomerDetailState) {
         }
     }
 }
+
 @Composable
 private fun StatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, valueColor: Color = LocalContentColor.current) {
     ElevatedCard(modifier = modifier) {

@@ -1,17 +1,39 @@
 package com.retailassistant.ui.navigation
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.navigation.*
-import androidx.navigation.compose.*
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.navigation
 import com.retailassistant.features.auth.AuthScreen
 import com.retailassistant.features.customers.CustomerDetailScreen
 import com.retailassistant.features.customers.CustomerListScreen
@@ -26,6 +48,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import org.koin.compose.koinInject
 
+private const val FADE_ANIM_DURATION = 300
+private const val SLIDE_ANIM_DURATION = 400
+
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -35,12 +60,7 @@ fun AppNavigation() {
     // This effect handles automatic navigation on auth state changes (e.g., logout).
     LaunchedEffect(sessionStatus, navController) {
         if (sessionStatus is SessionStatus.NotAuthenticated) {
-            val isNotInAuthGraph = navController.currentBackStack.value.any { it.destination.route?.startsWith(Screen.Auth.route) == false }
-            if(isNotInAuthGraph) {
-                 navController.navigate(Screen.Auth.route) {
-                    popUpTo(Screen.Dashboard.route) { inclusive = true }
-                }
-            }
+            navController.navigateToAuth()
         }
     }
 
@@ -52,18 +72,26 @@ fun AppNavigation() {
                 navController = navController,
                 startDestination = "root_decider"
             ) {
-                // This transient destination decides where to go on a cold start.
-                // This is a robust pattern for handling process death and initial auth state.
+                // Decides where to go on a cold start, preventing a flash of the auth screen.
                 composable("root_decider") {
-                    val targetRoute = remember {
-                        if (supabase.auth.currentSessionOrNull() != null) Screen.Dashboard.route else Screen.Auth.route
-                    }
-                    LaunchedEffect(Unit) {
-                        navController.navigate(targetRoute) {
-                            popUpTo("root_decider") { inclusive = true }
+                    when (sessionStatus) {
+                        is SessionStatus.Authenticated -> {
+                            LaunchedEffect(Unit) {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("root_decider") { inclusive = true }
+                                }
+                            }
                         }
+                        is SessionStatus.NotAuthenticated -> {
+                            LaunchedEffect(Unit) {
+                                navController.navigate(Screen.Auth.route) {
+                                    popUpTo("root_decider") { inclusive = true }
+                                }
+                            }
+                        }
+
+                        else -> FullScreenLoading() // Loading, Awaiting...
                     }
-                    FullScreenLoading()
                 }
                 authGraph(navController)
                 mainGraph(navController)
@@ -72,15 +100,15 @@ fun AppNavigation() {
     }
 }
 
-private fun NavGraphBuilder.authGraph(navController: NavController) {
+private fun NavGraphBuilder.authGraph(navController: NavHostController) {
     navigation(
         route = Screen.Auth.route,
-        startDestination = "login"
+        startDestination = Screen.Auth.Login.route
     ) {
-        composable("login") {
+        composable(Screen.Auth.Login.route) {
             AuthScreen(
                 onLoginSuccess = {
-                    navController.navigate(Screen.Dashboard.route) {
+                    navController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Auth.route) { inclusive = true }
                     }
                 }
@@ -90,25 +118,21 @@ private fun NavGraphBuilder.authGraph(navController: NavController) {
 }
 
 private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
-    val slideHorizontal = slideInHorizontally(animationSpec = tween(400)) { it }
-    val popSlideHorizontal = slideOutHorizontally(animationSpec = tween(400)) { it }
-    val slideVertical = slideInVertically(animationSpec = tween(500)) { it }
-    val popSlideVertical = slideOutVertically(animationSpec = tween(500)) { it }
-
     navigation(
-        route = Screen.Dashboard.route,
-        startDestination = "main_content"
+        route = Screen.Main.route,
+        startDestination = Screen.Main.Content.route
     ) {
-        composable("main_content") {
+        composable(Screen.Main.Content.route) {
             MainScreen(rootNavController = navController)
         }
         composable(
             route = Screen.InvoiceDetail.route,
             arguments = listOf(navArgument("invoiceId") { type = NavType.StringType }),
-            enterTransition = { slideHorizontal }, popExitTransition = { popSlideHorizontal }
+            enterTransition = { slideInHorizontally(tween(SLIDE_ANIM_DURATION)) { it } },
+            popExitTransition = { slideOutHorizontally(tween(SLIDE_ANIM_DURATION)) { it } }
         ) {
             InvoiceDetailScreen(
-                invoiceId = it.arguments?.getString("invoiceId") ?: "",
+                invoiceId = it.arguments?.getString("invoiceId")!!,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToCustomer = { id -> navController.navigate(Screen.CustomerDetail.createRoute(id)) }
             )
@@ -116,18 +140,19 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
         composable(
             route = Screen.CustomerDetail.route,
             arguments = listOf(navArgument("customerId") { type = NavType.StringType }),
-            enterTransition = { slideHorizontal }, popExitTransition = { popSlideHorizontal }
+            enterTransition = { slideInHorizontally(tween(SLIDE_ANIM_DURATION)) { it } },
+            popExitTransition = { slideOutHorizontally(tween(SLIDE_ANIM_DURATION)) { it } }
         ) {
             CustomerDetailScreen(
-                customerId = it.arguments?.getString("customerId") ?: "",
+                customerId = it.arguments?.getString("customerId")!!,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToInvoice = { id -> navController.navigate(Screen.InvoiceDetail.createRoute(id)) }
             )
         }
         composable(
             route = Screen.InvoiceCreation.route,
-            enterTransition = { slideVertical },
-            popExitTransition = { popSlideVertical }
+            enterTransition = { slideInVertically(tween(SLIDE_ANIM_DURATION)) { it } },
+            popExitTransition = { slideOutVertically(tween(SLIDE_ANIM_DURATION)) { it } }
         ) {
             InvoiceCreationScreen(onNavigateBack = { navController.popBackStack() })
         }
@@ -138,27 +163,32 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
 private fun MainScreen(rootNavController: NavHostController) {
     val bottomBarNavController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
+    val currentRoute by bottomBarNavController.currentBackStackEntryFlow.collectAsState(bottomBarNavController.currentBackStackEntry)
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         bottomBar = { AppBottomBar(navController = bottomBarNavController) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { rootNavController.navigate(Screen.InvoiceCreation.route) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large
-            ) {
-                Icon(Icons.Rounded.Add, "Create Invoice")
+            if(currentRoute?.destination?.route == Screen.Dashboard.route) {
+                FloatingActionButton(
+                    onClick = { rootNavController.navigate(Screen.InvoiceCreation.route) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Icon(Icons.Rounded.Add, "Create Invoice")
+                }
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
         NavHost(
             navController = bottomBarNavController,
             startDestination = Screen.Dashboard.route,
             modifier = Modifier.padding(padding),
-            enterTransition = { fadeIn(tween(300)) },
-            exitTransition = { fadeOut(tween(300)) }
+            enterTransition = { fadeIn(tween(FADE_ANIM_DURATION)) },
+            exitTransition = { fadeOut(tween(FADE_ANIM_DURATION)) }
         ) {
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
@@ -178,6 +208,14 @@ private fun MainScreen(rootNavController: NavHostController) {
                     snackbarHostState = snackbarHostState
                 )
             }
+        }
+    }
+}
+
+fun NavHostController.navigateToAuth() {
+    if (this.currentDestination?.route?.startsWith(Screen.Auth.route) == false) {
+        navigate(Screen.Auth.route) {
+            popUpTo(Screen.Main.route) { inclusive = true }
         }
     }
 }

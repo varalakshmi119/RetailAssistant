@@ -1,7 +1,10 @@
 package com.retailassistant.features.customers
 
 import androidx.lifecycle.viewModelScope
-import com.retailassistant.core.*
+import com.retailassistant.core.MviViewModel
+import com.retailassistant.core.UiAction
+import com.retailassistant.core.UiEvent
+import com.retailassistant.core.UiState
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.repository.RetailRepository
@@ -10,6 +13,8 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class CustomerWithStats(
@@ -23,17 +28,18 @@ data class CustomerListState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false
 ) : UiState {
-    val filteredCustomers: List<CustomerWithStats>
-        get() = if (searchQuery.isBlank()) {
+    val filteredCustomers: List<CustomerWithStats> by lazy {
+        if (searchQuery.isBlank()) {
             customersWithStats
         } else {
-            val query = searchQuery.lowercase()
+            val query = searchQuery.lowercase().trim()
             customersWithStats.filter {
                 it.customer.name.lowercase().contains(query) ||
                         it.customer.phone?.contains(query) == true ||
                         it.customer.email?.lowercase()?.contains(query) == true
             }
         }
+    }
 }
 
 sealed interface CustomerListAction : UiAction {
@@ -52,23 +58,22 @@ sealed interface CustomerListEvent : UiEvent {
 
 class CustomerListViewModel(
     private val repository: RetailRepository,
-    private val supabase: SupabaseClient
+    supabase: SupabaseClient
 ) : MviViewModel<CustomerListState, CustomerListAction, CustomerListEvent>() {
 
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
 
     init {
         if (userId != null) {
-            viewModelScope.launch {
-                repository.getCustomersStream(userId)
-                    .combine(repository.getInvoicesStream(userId)) { customers, invoices ->
-                        CustomerListAction.DataLoaded(customers, invoices)
-                    }
-                    .catch { e -> sendEvent(CustomerListEvent.ShowError(e.message ?: "Failed to load data")) }
-                    .collect { sendAction(it) }
-            }
+            repository.getCustomersStream(userId)
+                .combine(repository.getInvoicesStream(userId)) { customers, invoices ->
+                    CustomerListAction.DataLoaded(customers, invoices)
+                }
+                .catch { e -> sendEvent(CustomerListEvent.ShowError(e.message ?: "Failed to load data")) }
+                .onEach { sendAction(it) }
+                .launchIn(viewModelScope)
 
-            sendAction(CustomerListAction.RefreshData)
+            refreshData()
         } else {
             setState { copy(isLoading = false) }
         }

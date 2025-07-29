@@ -11,7 +11,7 @@ object NetworkUtils {
     suspend fun <T> retryWithBackoff(
         maxRetries: Int = 3,
         initialDelayMs: Long = 1000,
-        maxDelayMs: Long = 10000,
+        maxDelayMs: Long = 16000,
         backoffMultiplier: Double = 2.0,
         operation: suspend () -> T
     ): T {
@@ -29,12 +29,13 @@ object NetworkUtils {
                 }
 
                 if (attempt < maxRetries - 1) {
+                    // Add jitter to avoid thundering herd problem
                     val jitter = Random.nextLong(0, currentDelay / 4)
                     delay(currentDelay + jitter)
                     currentDelay = (currentDelay * backoffMultiplier).toLong().coerceAtMost(maxDelayMs)
                 }
             }
         }
-        throw lastException ?: Exception("Max retries exceeded without a specific exception.")
+        throw lastException ?: IllegalStateException("Max retries exceeded without a specific exception.")
     }
 }

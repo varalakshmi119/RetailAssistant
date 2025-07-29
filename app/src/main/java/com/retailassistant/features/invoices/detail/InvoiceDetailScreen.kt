@@ -1,18 +1,56 @@
 package com.retailassistant.features.invoices.detail
+
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Comment
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,17 +61,24 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import com.retailassistant.core.Utils
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.db.InvoiceStatus
-import com.retailassistant.ui.components.common.*
+import com.retailassistant.ui.components.common.ActionButton
+import com.retailassistant.ui.components.common.AddNoteDialog
+import com.retailassistant.ui.components.common.AddPaymentDialog
+import com.retailassistant.ui.components.common.CenteredTopAppBar
+import com.retailassistant.ui.components.common.ConfirmDeleteDialog
+import com.retailassistant.ui.components.common.EmptyState
+import com.retailassistant.ui.components.common.FullScreenLoading
+import com.retailassistant.ui.components.common.PostponeDueDateDialog
 import com.retailassistant.ui.components.specific.Avatar
 import com.retailassistant.ui.components.specific.InteractionLogItem
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
 @Composable
 fun InvoiceDetailScreen(
     invoiceId: String,
@@ -44,17 +89,19 @@ fun InvoiceDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
                 is InvoiceDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
                 is InvoiceDetailEvent.MakePhoneCall -> makePhoneCall(context, event.phoneNumber)
-                // MODIFIED: Handle navigation
                 is InvoiceDetailEvent.NavigateBack -> onNavigateBack()
             }
         }
     }
+
     HandleDialogs(state = state, onAction = viewModel::sendAction)
+
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -79,7 +126,7 @@ fun InvoiceDetailScreen(
             state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
             state.invoice == null -> EmptyState("Not Found", "This invoice may have been deleted.", Icons.Default.Error, Modifier.padding(padding))
             else -> {
-                val invoice = state.invoice!! // Assert non-null here, as we've already checked state.invoice == null
+                val invoice = state.invoice
                 LazyColumn(
                     modifier = Modifier.padding(padding).fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -93,17 +140,17 @@ fun InvoiceDetailScreen(
                             onNavigate = { state.customer?.id?.let(onNavigateToCustomer) }
                         )
                     }
-                    item { PaymentSummaryCard(invoice) } // Now 'invoice' is non-null
+                    item { PaymentSummaryCard(invoice!!) }
                     item {
                         ActionButtons(
-                            invoiceStatus = invoice.status,
+                            invoiceStatus = invoice!!.status,
                             onAddPayment = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddPayment)) },
                             onAddNote = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddNote)) },
                             onPostpone = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) }
                         )
                     }
-                    // MODIFIED: Pass the loaded signed URL from the state
                     item { InvoiceImageCard(imageUrl = state.imageUrl) }
+
                     if (state.logs.isNotEmpty()) {
                         item {
                             Text("Activity Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -117,9 +164,10 @@ fun InvoiceDetailScreen(
         }
     }
 }
+
 @Composable
 private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAction) -> Unit) {
-    when (state.activeDialog) {
+    when (val dialog = state.activeDialog) {
         ActiveDialog.AddPayment -> AddPaymentDialog(
             onDismiss = { onAction(InvoiceDetailAction.ShowDialog(null)) },
             onConfirm = { amount, note -> onAction(InvoiceDetailAction.AddPayment(amount, note)) },
@@ -136,7 +184,6 @@ private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAct
             onConfirm = { newDueDate, reason -> onAction(InvoiceDetailAction.PostponeDueDate(newDueDate, reason)) },
             isProcessing = state.isProcessingAction
         )
-        // MODIFIED: Handle delete confirmation
         ActiveDialog.ConfirmDeleteInvoice -> ConfirmDeleteDialog(
             title = "Delete Invoice?",
             text = "This action is permanent and cannot be undone.",
@@ -147,6 +194,7 @@ private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAct
         null -> {}
     }
 }
+
 @Composable
 private fun CustomerHeader(customerName: String, customerPhone: String?, onCall: () -> Unit, onNavigate: () -> Unit) {
     ElevatedCard(onClick = onNavigate) {
@@ -170,9 +218,14 @@ private fun CustomerHeader(customerName: String, customerPhone: String?, onCall:
         }
     }
 }
+
 @Composable
 private fun PaymentSummaryCard(invoice: Invoice) {
-    val progress = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f
+    val progress by animateFloatAsState(
+        targetValue = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f,
+        label = "paymentProgress"
+    )
+
     ElevatedCard {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Total Amount", style = MaterialTheme.typography.bodyLarge)
@@ -199,6 +252,7 @@ private fun PaymentSummaryCard(invoice: Invoice) {
         }
     }
 }
+
 @Composable
 private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit, onAddNote: () -> Unit, onPostpone: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -213,12 +267,13 @@ private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit
         }
     }
 }
+
 @Composable
 private fun InvoiceImageCard(imageUrl: String?) {
     var isExpanded by remember { mutableStateOf(false) }
     ElevatedCard(modifier = Modifier.clickable { isExpanded = !isExpanded }) {
         SubcomposeAsyncImage(
-            model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(),
+            model = imageUrl,
             contentDescription = "Invoice Scan",
             modifier = Modifier
                 .fillMaxWidth()
@@ -238,8 +293,9 @@ private fun InvoiceImageCard(imageUrl: String?) {
         )
     }
 }
+
 private fun makePhoneCall(context: Context, phoneNumber: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri()))
-    } catch (_: Exception) { }
+    } catch (_: Exception) { /* Fails silently */ }
 }

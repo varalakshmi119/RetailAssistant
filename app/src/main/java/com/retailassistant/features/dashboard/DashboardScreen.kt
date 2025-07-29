@@ -1,4 +1,5 @@
 package com.retailassistant.features.dashboard
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -6,10 +7,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,7 +53,7 @@ import com.retailassistant.ui.components.common.AnimatedCounter
 import com.retailassistant.ui.components.common.CenteredTopAppBar
 import com.retailassistant.ui.components.common.EmptyState
 import com.retailassistant.ui.components.common.GradientBox
-import com.retailassistant.ui.components.common.ShimmeringList
+import com.retailassistant.ui.components.common.shimmerBackground
 import com.retailassistant.ui.components.specific.InvoiceCard
 import com.retailassistant.ui.theme.AppGradients
 import com.retailassistant.ui.theme.GradientColors
@@ -65,7 +69,6 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showLogoutDialog by remember { mutableStateOf(false) }
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -73,7 +76,6 @@ fun DashboardScreen(
             }
         }
     }
-
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -93,7 +95,6 @@ fun DashboardScreen(
             }
         )
     }
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -103,13 +104,7 @@ fun DashboardScreen(
                         onClick = { viewModel.sendAction(DashboardAction.RefreshData) },
                         enabled = !state.isRefreshing
                     ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            modifier = if (state.isRefreshing) {
-                                Modifier.size(20.dp)
-                            } else Modifier
-                        )
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                     IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, "Logout")
@@ -125,48 +120,53 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
-                ShimmeringList()
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item { DashboardHeader(userName = state.userName) }
-                    item {
-                        DashboardStats(
-                            totalUnpaid = state.totalUnpaid,
-                            overdueCount = state.overdueCount
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item { DashboardHeader(userName = state.userName) }
+                item {
+                    DashboardStats(
+                        totalUnpaid = state.totalUnpaid,
+                        overdueCount = state.overdueCount
+                    )
+                }
+                item {
+                    Text(
+                        "Recent Invoices",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
+                    items(count = 3) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .shimmerBackground(MaterialTheme.shapes.large)
                         )
                     }
+                } else if (state.invoicesWithCustomers.isEmpty()) {
                     item {
-                        Text(
-                            "Recent Invoices",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 8.dp)
+                        EmptyState(
+                            title = "No invoices yet",
+                            subtitle = "Tap the '+' button below to add your first one.",
+                            icon = Icons.AutoMirrored.Filled.ReceiptLong
                         )
                     }
-                    if (state.invoicesWithCustomers.isEmpty()) {
-                        item {
-                            EmptyState(
-                                title = "No invoices yet",
-                                subtitle = "Tap the '+' button below to add your first one.",
-                                icon = Icons.AutoMirrored.Filled.ReceiptLong
-                            )
-                        }
-                    } else {
-                        items(state.invoicesWithCustomers, key = { it.invoice.id }) { item ->
-                            val friendlyDueDate = item.invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-                            InvoiceCard(
-                                invoice = item.invoice,
-                                customerName = item.customer?.name ?: "Unknown",
-                                friendlyDueDate = friendlyDueDate,
-                                onClick = { onNavigateToInvoice(item.invoice.id) },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
+                } else {
+                    items(state.invoicesWithCustomers, key = { it.invoice.id }) { item ->
+                        val friendlyDueDate = item.invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+                        InvoiceCard(
+                            invoice = item.invoice,
+                            customerName = item.customer?.name ?: "Unknown Customer",
+                            friendlyDueDate = friendlyDueDate,
+                            onClick = { onNavigateToInvoice(item.invoice.id) },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
             }
@@ -187,7 +187,7 @@ private fun DashboardHeader(userName: String?) {
             transitionSpec = {
                 (slideInVertically { h -> h } + fadeIn()).togetherWith(slideOutVertically { h -> -h } + fadeOut())
             },
-            label = "userName"
+            label = "userNameAnimation"
         ) { name ->
             Text(
                 text = name ?: "User",

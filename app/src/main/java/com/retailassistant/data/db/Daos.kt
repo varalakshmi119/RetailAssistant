@@ -20,8 +20,14 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE id = :customerId")
     fun getCustomerById(customerId: String): Flow<Customer?>
 
+    @Query("DELETE FROM customers WHERE id = :customerId")
+    suspend fun deleteById(customerId: String)
+
     @Query("DELETE FROM customers WHERE userId = :userId")
     suspend fun clearForUser(userId: String)
+
+    @Query("SELECT id FROM customers WHERE userId = :userId")
+    suspend fun getCustomerIdsForUser(userId: String): List<String>
 }
 
 @Dao
@@ -36,10 +42,19 @@ interface InvoiceDao {
     fun getInvoiceById(invoiceId: String): Flow<Invoice?>
 
     @Query("SELECT * FROM invoices WHERE customerId = :customerId AND userId = :userId ORDER BY createdAt DESC")
-    fun getInvoicesStreamForCustomer(customerId: String, userId: String): Flow<List<Invoice>>
+    fun getInvoicesForCustomerStream(customerId: String, userId: String): Flow<List<Invoice>>
+
+    @Query("DELETE FROM invoices WHERE id = :invoiceId")
+    suspend fun deleteById(invoiceId: String)
+
+    @Query("DELETE FROM invoices WHERE customerId = :customerId")
+    suspend fun deleteByCustomerId(customerId: String)
 
     @Query("DELETE FROM invoices WHERE userId = :userId")
     suspend fun clearForUser(userId: String)
+
+    @Query("SELECT id FROM invoices WHERE userId = :userId")
+    suspend fun getInvoiceIdsForUser(userId: String): List<String>
 }
 
 @Dao
@@ -48,7 +63,10 @@ interface InteractionLogDao {
     suspend fun upsert(logs: List<InteractionLog>)
 
     @Query("SELECT * FROM interaction_logs WHERE invoiceId = :invoiceId ORDER BY createdAt DESC")
-    fun getLogsForInvoice(invoiceId: String): Flow<List<InteractionLog>>
+    fun getLogsForInvoiceStream(invoiceId: String): Flow<List<InteractionLog>>
+
+    @Query("DELETE FROM interaction_logs WHERE invoiceId = :invoiceId")
+    suspend fun deleteByInvoiceId(invoiceId: String)
 
     @Query("DELETE FROM interaction_logs WHERE userId = :userId")
     suspend fun clearForUser(userId: String)

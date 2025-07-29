@@ -4,14 +4,20 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.retailassistant.core.*
+import com.retailassistant.core.ErrorHandler
+import com.retailassistant.core.ImageHandler
+import com.retailassistant.core.MviViewModel
+import com.retailassistant.core.UiAction
+import com.retailassistant.core.UiEvent
+import com.retailassistant.core.UiState
 import com.retailassistant.data.db.Customer
 import com.retailassistant.data.remote.GeminiClient
 import com.retailassistant.data.repository.RetailRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -58,46 +64,23 @@ sealed interface InvoiceCreationEvent : UiEvent {
 }
 
 class InvoiceCreationViewModel(
+    private val savedStateHandle: SavedStateHandle,
     private val repository: RetailRepository,
     private val geminiClient: GeminiClient,
     private val imageHandler: ImageHandler,
-    private val supabase: SupabaseClient,
-    private val savedStateHandle: SavedStateHandle
+    supabase: SupabaseClient
 ) : MviViewModel<InvoiceCreationState, InvoiceCreationAction, InvoiceCreationEvent>() {
-
-    private companion object {
-        const val CUSTOMER_NAME_KEY = "customerName"
-        const val CUSTOMER_ID_KEY = "selectedCustomerId"
-        const val PHONE_KEY = "phoneNumber"
-        const val EMAIL_KEY = "email"
-        const val ISSUE_DATE_KEY = "issueDate"
-        const val DUE_DATE_KEY = "dueDate"
-        const val AMOUNT_KEY = "amount"
-        const val IMAGE_URI_KEY = "scannedImageUri"
-    }
 
     private var imageBytes: ByteArray? = null
     private var aiExtractionJob: Job? = null
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
 
     init {
+        restoreState()
         if (userId != null) {
             repository.getCustomersStream(userId)
                 .onEach { customers -> setState { copy(customers = customers) } }
                 .launchIn(viewModelScope)
-        }
-        // Restore state from SavedStateHandle on init
-        setState {
-            copy(
-                customerName = savedStateHandle[CUSTOMER_NAME_KEY] ?: "",
-                selectedCustomerId = savedStateHandle[CUSTOMER_ID_KEY],
-                phoneNumber = savedStateHandle[PHONE_KEY] ?: "",
-                email = savedStateHandle[EMAIL_KEY] ?: "",
-                issueDate = (savedStateHandle.get<Long>(ISSUE_DATE_KEY))?.let { LocalDate.ofEpochDay(it) } ?: LocalDate.now(),
-                dueDate = (savedStateHandle.get<Long>(DUE_DATE_KEY))?.let { LocalDate.ofEpochDay(it) } ?: LocalDate.now().plusDays(30),
-                amount = savedStateHandle[AMOUNT_KEY] ?: "",
-                scannedImageUri = savedStateHandle.get<String>(IMAGE_URI_KEY)?.toUri()
-            )
         }
     }
 
@@ -107,91 +90,58 @@ class InvoiceCreationViewModel(
         when (action) {
             is InvoiceCreationAction.ImageSelected -> processImage(action.uri)
             is InvoiceCreationAction.SaveInvoice -> saveInvoice()
-            is InvoiceCreationAction.UpdateCustomerName -> setStateAndSave(CUSTOMER_NAME_KEY, action.value) { copy(customerName = it, selectedCustomerId = null) }
-            is InvoiceCreationAction.CustomerSelected -> {
-                savedStateHandle[CUSTOMER_NAME_KEY] = action.customer.name
-                savedStateHandle[CUSTOMER_ID_KEY] = action.customer.id
-                savedStateHandle[PHONE_KEY] = action.customer.phone ?: ""
-                savedStateHandle[EMAIL_KEY] = action.customer.email ?: ""
-                setState { copy(
-                    customerName = action.customer.name,
-                    selectedCustomerId = action.customer.id,
-                    phoneNumber = action.customer.phone ?: "",
-                    email = action.customer.email ?: ""
-                ) }
-            }
-            is InvoiceCreationAction.UpdatePhoneNumber -> setStateAndSave(PHONE_KEY, action.value) { copy(phoneNumber = it) }
-            is InvoiceCreationAction.UpdateEmail -> setStateAndSave(EMAIL_KEY, action.value) { copy(email = it) }
-            is InvoiceCreationAction.UpdateIssueDate -> setStateAndSave(ISSUE_DATE_KEY, action.value.toEpochDay()) { copy(issueDate = action.value) }
-            is InvoiceCreationAction.UpdateDueDate -> setStateAndSave(DUE_DATE_KEY, action.value.toEpochDay()) { copy(dueDate = action.value) }
+            is InvoiceCreationAction.UpdateCustomerName -> updateState(Keys.CUSTOMER_NAME, action.value) { copy(customerName = it ?: "", selectedCustomerId = null) }
+            is InvoiceCreationAction.CustomerSelected -> selectCustomer(action.customer)
+            is InvoiceCreationAction.UpdatePhoneNumber -> updateState(Keys.PHONE, action.value) { copy(phoneNumber = it ?: "") }
+            is InvoiceCreationAction.UpdateEmail -> updateState(Keys.EMAIL, action.value) { copy(email = it ?: "") }
+            is InvoiceCreationAction.UpdateIssueDate -> updateState(Keys.ISSUE_DATE, action.value.toEpochDay()) { copy(issueDate = action.value) }
+            is InvoiceCreationAction.UpdateDueDate -> updateState(Keys.DUE_DATE, action.value.toEpochDay()) { copy(dueDate = action.value) }
             is InvoiceCreationAction.UpdateAmount -> {
                 val filtered = action.value.filter { it.isDigit() || it == '.' }
-                setStateAndSave(AMOUNT_KEY, filtered) { copy(amount = filtered) }
+                updateState(Keys.AMOUNT, filtered) { copy(amount = filtered) }
             }
             is InvoiceCreationAction.ClearImage -> clearImageData()
             is InvoiceCreationAction.ShowScannerError -> sendEvent(InvoiceCreationEvent.ShowMessage("Document scanner is unavailable on this device."))
         }
     }
 
-    private fun <T> setStateAndSave(key: String, value: T, reducer: InvoiceCreationState.(T) -> InvoiceCreationState) {
-        savedStateHandle[key] = value
-        setState { reducer(value) }
-    }
-
     private fun processImage(uri: Uri) {
         aiExtractionJob?.cancel()
-        setStateAndSave(IMAGE_URI_KEY, uri.toString()) { copy(scannedImageUri = uri, isAiExtracting = true) }
-
+        updateState(Keys.IMAGE_URI, uri.toString()) { copy(scannedImageUri = uri, isAiExtracting = true) }
         aiExtractionJob = viewModelScope.launch {
-            try {
-                imageBytes = imageHandler.compressImageForUpload(uri)
-                if (imageBytes == null) {
-                    sendEvent(InvoiceCreationEvent.ShowMessage("Failed to process image. Please try another."))
-                    clearImageData()
-                    return@launch
+            imageHandler.compressImageForUpload(uri)
+                .onSuccess { bytes ->
+                    imageBytes = bytes
+                    extractDataFromImage(bytes)
                 }
-
-                geminiClient.extractInvoiceData(imageBytes!!)
-                    .onSuccess { data ->
-                        data.customerName?.let { name ->
-                            val matched = uiState.value.customers.find { it.name.equals(name, ignoreCase = true) }
-                            if (matched != null) sendAction(
-                                InvoiceCreationAction.CustomerSelected(
-                                    matched
-                                )
-                            )
-                            else sendAction(InvoiceCreationAction.UpdateCustomerName(name))
-                        }
-                        data.phoneNumber?.let { sendAction(
-                            InvoiceCreationAction.UpdatePhoneNumber(
-                                it
-                            )
-                        ) }
-                        data.email?.let { sendAction(InvoiceCreationAction.UpdateEmail(it)) }
-                        parseDate(data.date)?.let { sendAction(
-                            InvoiceCreationAction.UpdateIssueDate(
-                                it
-                            )
-                        ) }
-                        (parseDate(data.dueDate) ?: parseDate(data.date)?.plusDays(30))?.let { sendAction(
-                            InvoiceCreationAction.UpdateDueDate(it)
-                        ) }
-                        data.totalAmount?.takeIf { it > 0 }?.let { sendAction(
-                            InvoiceCreationAction.UpdateAmount(
-                                it.toString()
-                            )
-                        ) }
-                        sendEvent(InvoiceCreationEvent.ShowMessage("AI extracted data. Please review."))
-                    }
-                    .onFailure { error -> sendEvent(InvoiceCreationEvent.ShowMessage(ErrorHandler.getErrorMessage(error, "AI extraction failed."))) }
-            } catch (e: Exception) {
-                sendEvent(InvoiceCreationEvent.ShowMessage("Failed to process image: ${e.message}"))
-                clearImageData()
-            } finally {
-                setState { copy(isAiExtracting = false) }
-            }
+                .onFailure { error ->
+                    sendEvent(InvoiceCreationEvent.ShowMessage(error.message ?: "Failed to process image."))
+                    clearImageData()
+                }
         }
     }
+
+    private suspend fun extractDataFromImage(bytes: ByteArray) {
+        geminiClient.extractInvoiceData(bytes)
+            .onSuccess { data ->
+                data.customerName?.let { name ->
+                    val matched = uiState.value.customers.find { it.name.equals(name, ignoreCase = true) }
+                    if (matched != null) sendAction(InvoiceCreationAction.CustomerSelected(matched))
+                    else sendAction(InvoiceCreationAction.UpdateCustomerName(name))
+                }
+                data.phoneNumber?.let { sendAction(InvoiceCreationAction.UpdatePhoneNumber(it)) }
+                data.email?.let { sendAction(InvoiceCreationAction.UpdateEmail(it)) }
+                parseDate(data.date)?.let { sendAction(InvoiceCreationAction.UpdateIssueDate(it)) }
+                (parseDate(data.dueDate) ?: parseDate(data.date)?.plusDays(30))?.let { sendAction(InvoiceCreationAction.UpdateDueDate(it)) }
+                data.totalAmount?.takeIf { it > 0 }?.let { sendAction(InvoiceCreationAction.UpdateAmount(it.toString())) }
+                sendEvent(InvoiceCreationEvent.ShowMessage("AI extracted data. Please review."))
+            }
+            .onFailure { error ->
+                sendEvent(InvoiceCreationEvent.ShowMessage(ErrorHandler.getErrorMessage(error, "AI extraction failed.")))
+            }
+        setState { copy(isAiExtracting = false) }
+    }
+
 
     private fun saveInvoice() {
         if (userId == null) {
@@ -205,45 +155,87 @@ class InvoiceCreationViewModel(
 
         viewModelScope.launch {
             setState { copy(isSaving = true) }
-            try {
-                val currentImageBytes = imageBytes ?: uiState.value.scannedImageUri?.let { imageHandler.compressImageForUpload(it) }
-                if (currentImageBytes == null) {
-                    sendEvent(InvoiceCreationEvent.ShowMessage("Image data is missing. Please re-scan."))
-                    setState { copy(isSaving = false) }
-                    return@launch
-                }
+            val currentImageBytes = imageBytes
+            if (currentImageBytes == null) {
+                sendEvent(InvoiceCreationEvent.ShowMessage("Image data is missing. Please re-scan."))
+                setState { copy(isSaving = false) }
+                return@launch
+            }
 
-                val state = uiState.value
-                repository.addInvoice(
-                    userId = userId,
-                    existingCustomerId = state.selectedCustomerId,
-                    customerName = state.customerName.trim(),
-                    customerPhone = state.phoneNumber.trim().takeIf { it.isNotBlank() },
-                    customerEmail = state.email.trim().takeIf { it.isNotBlank() },
-                    issueDate = state.issueDate,
-                    dueDate = state.dueDate,
-                    totalAmount = state.amount.toDouble(),
-                    imageBytes = currentImageBytes
-                ).onSuccess {
-                    sendEvent(InvoiceCreationEvent.NavigateBack)
-                }.onFailure { error ->
-                    sendEvent(InvoiceCreationEvent.ShowMessage(error.message ?: "Failed to save invoice."))
-                }
-            } catch (e: Exception) {
-                sendEvent(InvoiceCreationEvent.ShowMessage("An unexpected error occurred: ${e.message}"))
-            } finally {
+            val state = uiState.value
+            repository.addInvoice(
+                userId = userId,
+                existingCustomerId = state.selectedCustomerId,
+                customerName = state.customerName.trim(),
+                customerPhone = state.phoneNumber.trim().takeIf { it.isNotBlank() },
+                customerEmail = state.email.trim().takeIf { it.isNotBlank() },
+                issueDate = state.issueDate,
+                dueDate = state.dueDate,
+                totalAmount = state.amount.toDouble(),
+                imageBytes = currentImageBytes
+            ).onSuccess {
+                sendEvent(InvoiceCreationEvent.NavigateBack)
+            }.onFailure { error ->
+                sendEvent(InvoiceCreationEvent.ShowMessage(error.message ?: "Failed to save invoice."))
                 setState { copy(isSaving = false) }
             }
+        }
+    }
+
+    private fun selectCustomer(customer: Customer) {
+        savedStateHandle[Keys.CUSTOMER_NAME] = customer.name
+        savedStateHandle[Keys.CUSTOMER_ID] = customer.id
+        savedStateHandle[Keys.PHONE] = customer.phone ?: ""
+        savedStateHandle[Keys.EMAIL] = customer.email ?: ""
+        setState {
+            copy(
+                customerName = customer.name,
+                selectedCustomerId = customer.id,
+                phoneNumber = customer.phone ?: "",
+                email = customer.email ?: ""
+            )
         }
     }
 
     private fun clearImageData() {
         aiExtractionJob?.cancel()
         imageBytes = null
-        setStateAndSave(IMAGE_URI_KEY, null) { copy(scannedImageUri = null, isAiExtracting = false) }
+        updateState(Keys.IMAGE_URI, null) { copy(scannedImageUri = null, isAiExtracting = false) }
     }
 
     private fun parseDate(dateStr: String?): LocalDate? {
         return dateStr?.let { try { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) } catch (e: DateTimeParseException) { null } }
+    }
+
+    // --- State Persistence ---
+    private object Keys {
+        const val CUSTOMER_NAME = "customerName"
+        const val CUSTOMER_ID = "selectedCustomerId"
+        const val PHONE = "phoneNumber"
+        const val EMAIL = "email"
+        const val ISSUE_DATE = "issueDate"
+        const val DUE_DATE = "dueDate"
+        const val AMOUNT = "amount"
+        const val IMAGE_URI = "scannedImageUri"
+    }
+
+    private fun <T> updateState(key: String, value: T?, reducer: InvoiceCreationState.(T?) -> InvoiceCreationState) {
+        savedStateHandle[key] = value
+        setState { reducer(value) }
+    }
+
+    private fun restoreState() {
+        setState {
+            copy(
+                customerName = savedStateHandle[Keys.CUSTOMER_NAME] ?: "",
+                selectedCustomerId = savedStateHandle[Keys.CUSTOMER_ID],
+                phoneNumber = savedStateHandle[Keys.PHONE] ?: "",
+                email = savedStateHandle[Keys.EMAIL] ?: "",
+                issueDate = (savedStateHandle.get<Long>(Keys.ISSUE_DATE))?.let { LocalDate.ofEpochDay(it) } ?: LocalDate.now(),
+                dueDate = (savedStateHandle.get<Long>(Keys.DUE_DATE))?.let { LocalDate.ofEpochDay(it) } ?: LocalDate.now().plusDays(30),
+                amount = savedStateHandle[Keys.AMOUNT] ?: "",
+                scannedImageUri = savedStateHandle.get<String>(Keys.IMAGE_URI)?.toUri()
+            )
+        }
     }
 }

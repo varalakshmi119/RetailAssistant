@@ -59,11 +59,13 @@ class AuthViewModel(
                 val userId = supabase.auth.currentUserOrNull()?.id
                     ?: throw IllegalStateException("Sign-in successful but user not found.")
 
-                // Sync data after login, but navigate immediately for better UX.
                 repository.syncAllUserData(userId)
                 sendEvent(AuthEvent.NavigateToDashboard)
             } catch (e: Exception) {
-                sendEvent(AuthEvent.ShowMessage(mapAuthException(e)))
+                // Log the full exception for debugging
+                println("Auth error: ${e.javaClass.simpleName}: ${e.message}")
+                val errorMessage = mapAuthException(e)
+                sendEvent(AuthEvent.ShowMessage(errorMessage))
             } finally {
                 setState { copy(isLoading = false) }
             }
@@ -79,9 +81,10 @@ class AuthViewModel(
                     password = uiState.value.password
                 }
                 sendEvent(AuthEvent.ShowMessage("Account created! Please check your email for a confirmation link."))
-                // Switch to sign-in mode for convenience.
                 setState { copy(isSignUpMode = false, password = "") }
             } catch (e: Exception) {
+                // Log the full exception for debugging
+                println("Auth signup error: ${e.javaClass.simpleName}: ${e.message}")
                 sendEvent(AuthEvent.ShowMessage(mapAuthException(e)))
             } finally {
                 setState { copy(isLoading = false) }
@@ -96,10 +99,20 @@ class AuthViewModel(
                 e.message?.contains("invalid_login_credentials", true) == true -> "Invalid email or password."
                 e.message?.contains("User already registered", true) == true -> "An account with this email already exists. Please sign in."
                 e.message?.contains("weak_password", true) == true -> "Password is too weak. Please use at least 6 characters."
-                else -> e.message ?: "An authentication error occurred."
+                else -> "Authentication failed. Please try again."
             }
-            is HttpRequestException -> "Network error. Please check your connection."
-            else -> e.message ?: "An unknown error occurred."
+            is HttpRequestException -> "Network error. Please check your connection and try again."
+            is java.net.UnknownHostException -> "Unable to connect. Please check your internet connection."
+            is java.net.SocketTimeoutException -> "Connection timeout. Please try again."
+            else -> {
+                // Truncate very long error messages to prevent UI issues
+                val message = e.message?.take(100) ?: "An unknown error occurred"
+                if (e.message != null && e.message!!.length > 100) {
+                    "$message..."
+                } else {
+                    message
+                }
+            }
         }
     }
 }

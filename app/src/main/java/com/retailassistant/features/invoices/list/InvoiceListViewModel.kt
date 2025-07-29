@@ -13,6 +13,8 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class InvoiceListState(
@@ -21,16 +23,17 @@ data class InvoiceListState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false
 ) : UiState {
-    val filteredInvoices: List<InvoiceWithCustomer>
-        get() = if (searchQuery.isBlank()) {
+    val filteredInvoices: List<InvoiceWithCustomer> by lazy {
+        if (searchQuery.isBlank()) {
             allInvoices
         } else {
-            val query = searchQuery.lowercase()
+            val query = searchQuery.lowercase().trim()
             allInvoices.filter {
                 it.customer?.name?.lowercase()?.contains(query) == true ||
                 it.invoice.totalAmount.toString().contains(query)
             }
         }
+    }
 }
 
 sealed interface InvoiceListAction : UiAction {
@@ -42,23 +45,23 @@ sealed interface InvoiceListAction : UiAction {
 sealed interface InvoiceListEvent : UiEvent {
     data class ShowError(val message: String) : InvoiceListEvent
 }
+
 class InvoiceListViewModel(
     private val repository: RetailRepository,
-    private val supabase: SupabaseClient
+    supabase: SupabaseClient
 ) : MviViewModel<InvoiceListState, InvoiceListAction, InvoiceListEvent>() {
 
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
 
     init {
         if (userId != null) {
-            viewModelScope.launch {
-                repository.getInvoicesStream(userId)
-                    .combine(repository.getCustomersStream(userId)) { invoices, customers ->
-                        InvoiceListAction.DataLoaded(invoices, customers)
-                    }
-                    .catch { setState { copy(isLoading = false) } }
-                    .collect { sendAction(it) }
-            }
+            repository.getInvoicesStream(userId)
+                .combine(repository.getCustomersStream(userId)) { invoices, customers ->
+                    InvoiceListAction.DataLoaded(invoices, customers)
+                }
+                .catch { setState { copy(isLoading = false) } }
+                .onEach { sendAction(it) }
+                .launchIn(viewModelScope)
 
             sendAction(InvoiceListAction.RefreshData)
         } else {
@@ -92,9 +95,8 @@ class InvoiceListViewModel(
         if (userId == null) return
         viewModelScope.launch {
             setState { copy(isRefreshing = true) }
-            repository.syncAllUserData(userId).onFailure {
-                // Let the UI stream handle the error display if needed.
-                // Just reset the refreshing state.
+            repository.syncAllUserData(userId).onFailure { error ->
+                sendEvent(InvoiceListEvent.ShowError(error.message ?: "Sync failed"))
                 setState { copy(isRefreshing = false) }
             }
         }

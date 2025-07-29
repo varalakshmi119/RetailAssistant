@@ -7,13 +7,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * A centralized utility object for common formatting tasks.
+ * A centralized utility object for common formatting tasks, ensuring consistency across the app.
  */
 object Utils {
+    private val currencyFormatter by lazy {
+        NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    }
 
-    private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
-    private val timestampFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a", Locale.ENGLISH)
-        .withZone(ZoneId.systemDefault())
+    private val timestampFormatter by lazy {
+        DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault())
+    }
 
     fun formatCurrency(amount: Double): String {
         return currencyFormatter.format(amount)

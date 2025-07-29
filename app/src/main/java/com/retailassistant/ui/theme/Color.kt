@@ -40,7 +40,9 @@ val LightColorScheme = lightColorScheme(
     onSurface = Slate,
     surfaceVariant = Color(0xFFEDF2F7),
     onSurfaceVariant = LightSlate,
-    outline = Color(0xFFCBD5E0)
+    surfaceContainer = Color(0xFFF0F4F8),
+    outline = Color(0xFFCBD5E0),
+    outlineVariant = Color(0xFFE2E8F0)
 )
 
 val DarkColorScheme = darkColorScheme(
@@ -66,7 +68,9 @@ val DarkColorScheme = darkColorScheme(
     onSurface = OffWhite,
     surfaceVariant = LightSlate,
     onSurfaceVariant = Steel,
-    outline = LightSlate
+    surfaceContainer = Color(0xFF273041),
+    outline = LightSlate,
+    outlineVariant = Color(0xFF2D3748)
 )
 
 data class GradientColors(val start: Color, val end: Color)
