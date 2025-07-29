@@ -10,7 +10,6 @@ import com.retailassistant.data.db.InteractionLog
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.repository.RetailRepository
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
