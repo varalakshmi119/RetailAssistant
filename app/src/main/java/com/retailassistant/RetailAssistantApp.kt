@@ -24,13 +24,11 @@ import java.util.concurrent.TimeUnit
 class RetailAssistantApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
-
         startKoin {
             androidLogger(if (BuildConfig.DEBUG) Level.ERROR else Level.NONE)
             androidContext(this@RetailAssistantApp)
             modules(appModule)
         }
-
         setupPeriodicWork()
     }
 
@@ -41,7 +39,13 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
 
         val periodicWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
             .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            // CORRECTION: Fixed the method signature and unresolved reference.
+            // Using exponential backoff is better for periodic work.
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                WorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(

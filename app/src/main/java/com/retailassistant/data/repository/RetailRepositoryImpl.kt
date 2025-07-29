@@ -33,7 +33,6 @@ class RetailRepositoryImpl(
     private val logDao: InteractionLogDao,
     private val ioDispatcher: CoroutineDispatcher
 ) : RetailRepository {
-
     override fun getInvoicesStream(userId: String): Flow<List<Invoice>> = invoiceDao.getInvoicesStream(userId)
     override fun getCustomersStream(userId: String): Flow<List<Customer>> = customerDao.getCustomersStream(userId)
     override fun getCustomerInvoicesStream(userId: String, customerId: String): Flow<List<Invoice>> =
@@ -43,7 +42,6 @@ class RetailRepositoryImpl(
             invoice to logs
         }
     override fun getCustomerById(customerId: String): Flow<Customer?> = customerDao.getCustomerById(customerId)
-
     override suspend fun addInvoice(
         userId: String, existingCustomerId: String?, customerName: String, customerPhone: String?,
         customerEmail: String?, issueDate: LocalDate, dueDate: LocalDate, totalAmount: Double, imageBytes: ByteArray
@@ -52,10 +50,8 @@ class RetailRepositoryImpl(
             require(customerName.isNotBlank()) { "Customer name cannot be empty" }
             require(totalAmount > 0) { "Total amount must be greater than zero" }
             require(imageBytes.isNotEmpty()) { "Image data is required" }
-
             val imagePath = "$userId/${UUID.randomUUID()}.jpg"
             supabase.storage.from("invoice-scans").upload(imagePath, imageBytes)
-
             try {
                 supabase.postgrest.rpc("create_invoice_with_customer", buildJsonObject {
                     put("p_customer_id", existingCustomerId?.let { JsonPrimitive(it) } ?: JsonNull)
@@ -69,7 +65,13 @@ class RetailRepositoryImpl(
                 })
                 syncAllUserData(userId).getOrThrow()
             } catch (dbException: Exception) {
-                runCatching { supabase.storage.from("invoice-scans").delete(imagePath) }
+                // Attempt to clean up orphaned image, log if it fails.
+                runCatching {
+                    supabase.storage.from("invoice-scans").delete(imagePath)
+                }.onFailure { cleanupException ->
+                    // Log or report this error, as you now have an orphaned file.
+                    println("Failed to cleanup orphaned image: $imagePath. Error: ${cleanupException.message}")
+                }
                 throw dbException
             }
         }.fold(
@@ -77,45 +79,38 @@ class RetailRepositoryImpl(
             onFailure = { Result.failure(mapException(it, "Could not save the invoice.")) }
         )
     }
-
     override suspend fun addPayment(userId: String, invoiceId: String, amount: Double, note: String?): Result<Unit> =
         handleRpc("add_payment", mapOf("p_invoice_id" to invoiceId, "p_amount" to amount, "p_note" to note), "Could not add payment.", userId)
-
     override suspend fun addNote(userId: String, invoiceId: String, note: String): Result<Unit> =
         handleRpc("add_note", mapOf("p_invoice_id" to invoiceId, "p_note" to note), "Could not add note.", userId)
-
     override suspend fun postponeDueDate(userId: String, invoiceId: String, newDueDate: LocalDate, reason: String?): Result<Unit> =
         handleRpc("postpone_due_date", mapOf("p_invoice_id" to invoiceId, "p_new_due_date" to newDueDate.toString(), "p_reason" to reason), "Could not postpone due date.", userId)
-
     override suspend fun deleteInvoice(invoiceId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             val userId = supabase.auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not authenticated.")
             supabase.postgrest.rpc("delete_invoice", buildJsonObject {
                 put("p_invoice_id", JsonPrimitive(invoiceId))
             })
-            logDao.deleteByInvoiceId(invoiceId)
+            // This local delete will trigger a cascade delete of logs due to the new ForeignKey constraint
             invoiceDao.deleteById(invoiceId)
         }.fold(
             onSuccess = { Result.success(Unit) },
             onFailure = { Result.failure(mapException(it, "Could not delete invoice.")) }
         )
     }
-
     override suspend fun deleteCustomer(customerId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             val userId = supabase.auth.currentUserOrNull()?.id ?: throw IllegalStateException("User not authenticated.")
             supabase.postgrest.rpc("delete_customer", buildJsonObject {
                 put("p_customer_id", JsonPrimitive(customerId))
             })
-            // Cascade delete locally
-            invoiceDao.deleteByCustomerId(customerId)
+            // This local delete will trigger a cascade delete of invoices and their logs
             customerDao.deleteById(customerId)
         }.fold(
             onSuccess = { Result.success(Unit) },
             onFailure = { Result.failure(mapException(it, "Could not delete customer.")) }
         )
     }
-
     private suspend fun handleRpc(functionName: String, params: Map<String, Any?>, errorMsg: String, userId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             supabase.postgrest.rpc(functionName, buildJsonObject {
@@ -135,7 +130,6 @@ class RetailRepositoryImpl(
             onFailure = { Result.failure(mapException(it, errorMsg)) }
         )
     }
-
     override suspend fun getPublicUrl(path: String): Result<String> = withContext(ioDispatcher) {
         runCatching {
             NetworkUtils.retryWithBackoff {
@@ -146,7 +140,6 @@ class RetailRepositoryImpl(
             onFailure = { Result.failure(mapException(it, "Could not get image URL.")) }
         )
     }
-
     override suspend fun syncAllUserData(userId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             coroutineScope {
@@ -154,19 +147,17 @@ class RetailRepositoryImpl(
                 val customersJob = async { supabase.from("customers").select { filter { eq("user_id", userId) } }.decodeList<Customer>() }
                 val invoicesJob = async { supabase.from("invoices").select { filter { eq("user_id", userId) } }.decodeList<Invoice>() }
                 val logsJob = async { supabase.from("interaction_logs").select { filter { eq("user_id", userId) } }.decodeList<InteractionLog>() }
-
                 val remoteCustomers = customersJob.await()
                 val remoteInvoices = invoicesJob.await()
                 val remoteLogs = logsJob.await()
-
                 // Smart local cleanup: remove items that no longer exist on the server
                 val remoteCustomerIds = remoteCustomers.map { it.id }.toSet()
                 val localCustomerIds = customerDao.getCustomerIdsForUser(userId)
-                localCustomerIds.filterNot { it in remoteCustomerIds }.forEach { customerDao.deleteById(it) }
+                localCustomerIds.filterNot { it in remoteCustomerIds }.forEach { customerDao.deleteById(it) } // This will cascade delete invoices
 
                 val remoteInvoiceIds = remoteInvoices.map { it.id }.toSet()
                 val localInvoiceIds = invoiceDao.getInvoiceIdsForUser(userId)
-                localInvoiceIds.filterNot { it in remoteInvoiceIds }.forEach { invoiceDao.deleteById(it) }
+                localInvoiceIds.filterNot { it in remoteInvoiceIds }.forEach { invoiceDao.deleteById(it) } // This will cascade delete logs
 
                 // Upsert fresh data
                 customerDao.upsert(remoteCustomers)
@@ -178,7 +169,6 @@ class RetailRepositoryImpl(
             onFailure = { Result.failure(mapException(it, "Data sync failed.")) }
         )
     }
-
     override suspend fun signOut(userId: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
             supabase.auth.signOut()
@@ -190,8 +180,9 @@ class RetailRepositoryImpl(
             onFailure = { Result.failure(mapException(it, "Could not sign out.")) }
         )
     }
-
-    private fun mapException(e: Throwable, default: String): Exception {
+    private fun mapException(e: Throwable, default: String): Throwable {
+        // IMPROVEMENT: Return a new exception with a user-friendly message, but keep the original
+        // cause for debugging. The ViewModel will show the message.
         return Exception(ErrorHandler.getErrorMessage(e, default), e)
     }
 }

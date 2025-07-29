@@ -5,11 +5,13 @@ import com.retailassistant.BuildConfig
 import com.retailassistant.data.db.ExtractedInvoiceData
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 // Data classes for Gemini API serialization
@@ -28,10 +30,10 @@ import kotlinx.serialization.json.Json
  * building, JSON response parsing, and error handling gracefully.
  */
 class GeminiClient(private val httpClient: HttpClient) {
-
     private val modelId = "gemini-1.5-flash"
     private val apiKey = BuildConfig.GEMINI_API_KEY
-    private val apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent?key=$apiKey"
+    // IMPROVEMENT (Security): Removed API key from URL. It will be sent in a header.
+    private val apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent"
     private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
 
     suspend fun extractInvoiceData(imageBytes: ByteArray): Result<ExtractedInvoiceData> {
@@ -46,6 +48,8 @@ class GeminiClient(private val httpClient: HttpClient) {
 
             val responseString: String = httpClient.post(apiUrl) {
                 contentType(ContentType.Application.Json)
+                // IMPROVEMENT (Security): Sending API key in a header is more secure than a query parameter.
+                header("x-goog-api-key", apiKey)
                 setBody(request)
             }.body()
 
@@ -54,22 +58,28 @@ class GeminiClient(private val httpClient: HttpClient) {
     }
 
     private fun parseAndDecodeResponse(responseString: String): ExtractedInvoiceData {
-        return if (responseString.contains("\"candidates\"")) {
+        // IMPROVEMENT: Replaced brittle string check with a robust try-catch block.
+        return try {
             val response = jsonParser.decodeFromString<GeminiResponse>(responseString)
             val jsonText = response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 ?: throw Exception("AI response was empty or malformed.")
             // Clean the response from markdown code block markers
             val cleanedJsonText = jsonText.removeSurrounding("```json\n", "\n```").trim()
             jsonParser.decodeFromString<ExtractedInvoiceData>(cleanedJsonText)
-        } else {
-            val errorResponse = jsonParser.decodeFromString<GeminiErrorResponse>(responseString)
-            throw Exception("Gemini API Error: ${errorResponse.error.message}")
+        } catch (e: SerializationException) {
+            // If decoding the success response fails, try decoding the error response.
+            try {
+                val errorResponse = jsonParser.decodeFromString<GeminiErrorResponse>(responseString)
+                throw Exception("Gemini API Error: ${errorResponse.error.message}")
+            } catch (e2: SerializationException) {
+                // If both fail, the response is truly unknown.
+                throw Exception("Failed to parse Gemini API response: $responseString")
+            }
         }
     }
 
     private fun buildRequest(base64ImageData: String): GeminiRequest {
         val prompt = """
-            You are an expert AI for the "Retail Assistant" app, designed for small business owners in India.
             Your task is to analyze the provided invoice image and extract key information into a single, valid JSON object.
             Extract these fields:
             - "customer_name": The person or company name being billed.
