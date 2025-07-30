@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -83,6 +84,8 @@ fun FormTextField(
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    // DESIGN: Form fields have a softer, more modern aesthetic. The border is invisible
+    // when unfocused, relying on the container color for definition.
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -104,12 +107,13 @@ fun FormTextField(
         shape = MaterialTheme.shapes.medium,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-            disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
             focusedLabelColor = MaterialTheme.colorScheme.primary,
             cursorColor = MaterialTheme.colorScheme.primary,
             errorBorderColor = MaterialTheme.colorScheme.error,
-            errorLabelColor = MaterialTheme.colorScheme.error
+            errorLabelColor = MaterialTheme.colorScheme.error,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         )
     )
 }
@@ -123,13 +127,13 @@ fun SearchBar(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val animatedElevation by animateDpAsState(
-        targetValue = if (isFocused) 4.dp else 1.dp,
+        targetValue = if (isFocused) 3.dp else 0.dp,
         label = "search_elevation"
     )
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text(text = placeholder) },
+        placeholder = { Text(text = placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant) },
         leadingIcon = {
             Icon(
                 imageVector = leadingIcon,
@@ -160,9 +164,9 @@ fun SearchBar(
         shape = MaterialTheme.shapes.extraLarge,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
             cursorColor = MaterialTheme.colorScheme.primary
         )
     )
@@ -259,6 +263,8 @@ fun EnhancedDatePickerField(
         value.format(DateTimeFormatter.ofPattern(dateFormat, Locale.getDefault()))
     }
     Box(modifier = modifier) {
+        // This FormTextField is not directly editable, it just displays the date and opens the picker.
+        // It's disabled, but we use a custom clickable modifier to control its behavior.
         FormTextField(
             value = formattedDate,
             onValueChange = {},
@@ -274,7 +280,7 @@ fun EnhancedDatePickerField(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
             ) { if (enabled) showDatePicker = true },
-            enabled = false // Disable direct text input
+            enabled = false // This prevents the cursor and keyboard from appearing.
         )
     }
     if (showDatePicker) {
@@ -282,9 +288,10 @@ fun EnhancedDatePickerField(
             initialSelectedDateMillis = value.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         )
         DatePickerDialog(
+            shape = MaterialTheme.shapes.large,
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                FilledTonalButton(
+                Button(
                     onClick = {
                         showDatePicker = false
                         datePickerState.selectedDateMillis?.let { millis ->
@@ -298,15 +305,15 @@ fun EnhancedDatePickerField(
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            },
-            shape = MaterialTheme.shapes.large,
+            }
         ) {
             DatePicker(
                 state = datePickerState,
                 showModeToggle = true,
                 colors = DatePickerDefaults.colors(
                     selectedDayContainerColor = MaterialTheme.colorScheme.primary,
-                    todayDateBorderColor = MaterialTheme.colorScheme.primary
+                    todayDateBorderColor = MaterialTheme.colorScheme.primary,
+                    todayContentColor = MaterialTheme.colorScheme.primary
                 )
             )
         }

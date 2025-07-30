@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,19 +109,27 @@ fun InvoiceCreationScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
+            Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface) {
                 GradientButton(
                     text = "Save Invoice",
                     onClick = { viewModel.sendAction(InvoiceCreationAction.SaveInvoice) },
                     isLoading = state.isSaving,
                     enabled = state.isFormValid,
-                    modifier = Modifier.padding(16.dp).safeDrawingPadding()
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .safeDrawingPadding()
                 )
             }
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState())) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+        ) {
             ImageSelectionSection(
                 imageUri = state.scannedImageUri,
                 isAiExtracting = state.isAiExtracting,
@@ -142,13 +151,19 @@ private fun ImageSelectionSection(
     onClick: () -> Unit,
     onClearClick: () -> Unit
 ) {
+    // DESIGN: A more polished image selection area with a dashed border for the placeholder.
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(220.dp)
             .padding(16.dp)
             .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant,
+                MaterialTheme.shapes.large
+            )
             .clickable(onClick = onClick, enabled = !isAiExtracting)
     ) {
         AnimatedContent(
@@ -169,24 +184,44 @@ private fun ImageSelectionSection(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.DocumentScanner, "Scan", Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Default.DocumentScanner,
+                        "Scan",
+                        Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Spacer(Modifier.height(12.dp))
-                    Text("Tap to scan invoice", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("AI will attempt to extract details", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Tap to scan invoice",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "AI will attempt to extract details",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
         if (isAiExtracting) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White)
             }
         }
         if (imageUri != null && !isAiExtracting) {
             IconButton(
                 onClick = onClearClick,
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
                 colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
                     contentColor = Color.White
                 )
             ) {
@@ -247,7 +282,7 @@ private fun InvoiceForm(state: InvoiceCreationState, onAction: (InvoiceCreationA
             enabled = !state.isSaving,
             leadingIcon = { Icon(Icons.Default.Email, "Email") }
         )
-        Spacer(Modifier.height(80.dp)) // Spacer for bottom button
+        Spacer(Modifier.height(24.dp))
     }
 }
 @Composable

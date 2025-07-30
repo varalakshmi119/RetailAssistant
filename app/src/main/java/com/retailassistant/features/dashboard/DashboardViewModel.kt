@@ -90,9 +90,10 @@ class DashboardViewModel(
         }
     }
     private fun signOut() {
-        if (userId == null) return
         viewModelScope.launch {
-            repository.signOut(userId)
+            supabase.auth.currentUserOrNull()?.id?.let {
+                repository.signOut(it)
+            }
             // Navigation is handled reactively by AppNavigation observing the session status.
         }
     }

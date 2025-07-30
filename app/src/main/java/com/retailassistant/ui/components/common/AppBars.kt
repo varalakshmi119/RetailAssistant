@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +19,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -36,7 +38,9 @@ fun AppBottomBar(navController: NavHostController) {
         exit = slideOutVertically(animationSpec = tween(300)) { it } + fadeOut(tween(300))
     ) {
         NavigationBar(
-            tonalElevation = 0.dp
+            // DESIGN: Removed tonal elevation for a flatter, more modern look that blends with the scaffold.
+            tonalElevation = 0.dp,
+            containerColor = MaterialTheme.colorScheme.surface,
         ) {
             bottomNavItems.forEach { item ->
                 val isSelected = currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
@@ -49,12 +53,13 @@ fun AppBottomBar(navController: NavHostController) {
                             restoreState = true
                         }
                     },
-                    icon = { Icon(item.icon, contentDescription = item.title) },
+                    icon = { Icon(item.icon, contentDescription = item.title, modifier = Modifier.size(24.dp)) },
                     label = { Text(item.title, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal) },
+                    // DESIGN: Updated colors for a more branded and subtle selection state.
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -71,11 +76,12 @@ fun CenteredTopAppBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        title = { Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleLarge) },
         navigationIcon = navigationIcon,
         actions = actions,
+        // DESIGN: Top app bar blends with the background for a more seamless UI.
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.background,
             scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
         )
     )

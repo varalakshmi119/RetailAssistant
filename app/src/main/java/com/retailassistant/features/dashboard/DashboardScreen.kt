@@ -29,11 +29,10 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +65,7 @@ import com.retailassistant.ui.components.common.AnimatedCounter
 import com.retailassistant.ui.components.common.CenteredTopAppBar
 import com.retailassistant.ui.components.common.EmptyState
 import com.retailassistant.ui.components.common.GradientBox
+import com.retailassistant.ui.components.common.PanelCard
 import com.retailassistant.ui.components.common.shimmerBackground
 import com.retailassistant.ui.components.specific.InvoiceCard
 import com.retailassistant.ui.theme.AppGradients
@@ -149,13 +149,13 @@ fun DashboardScreen(
                     }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = { viewModel.sendAction(DashboardAction.RefreshData) },
             modifier = Modifier
-                .fillMaxSize()
                 .padding(padding)
         ) {
             LazyColumn(
@@ -164,11 +164,8 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item { DashboardHeader(userName = state.userName) }
-                // Show offline indicator when not connected
                 if (!isOnline) {
-                    item {
-                        OfflineIndicatorCard()
-                    }
+                    item { OfflineIndicatorCard() }
                 }
                 if (showPermissionCard && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     item {
@@ -193,11 +190,13 @@ fun DashboardScreen(
                     )
                 }
                 if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
+                    // FIX: Replaced the incorrect call to ShimmeringList with individual Box placeholders.
+                    // This prevents nesting a LazyColumn within another LazyColumn.
                     items(count = 3) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(140.dp)
+                                .height(90.dp)
                                 .shimmerBackground(MaterialTheme.shapes.large)
                         )
                     }
@@ -230,10 +229,9 @@ private fun PermissionRequestCard(
     onAllowClick: () -> Unit,
     onDismissClick: () -> Unit
 ) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-        )
+    // DESIGN: A styled card for permission requests that fits the new branding.
+    PanelCard(
+        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -247,30 +245,31 @@ private fun PermissionRequestCard(
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(28.dp)
                 )
-                Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
                         text = "Stay Updated",
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
                         text = "Allow notifications for overdue invoice reminders.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onAllowClick) {
-                    Text("Allow", color = MaterialTheme.colorScheme.tertiary)
+                    Text("Allow", color = MaterialTheme.colorScheme.secondary)
                 }
                 IconButton(onClick = onDismissClick) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Dismiss notification permission request",
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -279,7 +278,7 @@ private fun PermissionRequestCard(
 }
 @Composable
 private fun DashboardHeader(userName: String?) {
-    Column {
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
         Text(
             text = "Welcome back,",
             style = MaterialTheme.typography.titleMedium,
@@ -317,7 +316,7 @@ private fun DashboardStats(
             label = "Overdue",
             value = overdueCount.toDouble(),
             formatter = { it.toInt().toString() },
-            icon = Icons.Default.Warning,
+            icon = Icons.Default.WarningAmber,
             gradient = if (overdueCount > 0) AppGradients.Error else AppGradients.Success,
             modifier = Modifier.weight(1f)
         )
@@ -333,12 +332,12 @@ private fun StatCard(
     formatter: (Double) -> String = { Utils.formatCurrency(it) }
 ) {
     val brush = Brush.linearGradient(colors = listOf(gradient.start, gradient.end))
-    GradientBox(modifier = modifier, gradient = brush) {
+    GradientBox(modifier = modifier, gradient = brush, shape = MaterialTheme.shapes.large) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(32.dp),
                 tint = Color.White
             )
             Text(
@@ -357,22 +356,18 @@ private fun StatCard(
 }
 @Composable
 private fun OfflineIndicatorCard() {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+    PanelCard(
+        containerColor = MaterialTheme.colorScheme.errorContainer,
+        borderColor = MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Warning,
+                imageVector = Icons.Default.WarningAmber,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onErrorContainer
+                tint = MaterialTheme.colorScheme.error
             )
             Column {
                 Text(
@@ -382,7 +377,7 @@ private fun OfflineIndicatorCard() {
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
-                    text = "Some features may not be available. Data will sync when connection is restored.",
+                    text = "Data will sync when connection is restored.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )

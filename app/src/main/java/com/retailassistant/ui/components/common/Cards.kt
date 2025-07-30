@@ -1,6 +1,6 @@
 package com.retailassistant.ui.components.common
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -13,20 +13,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+/**
+ * DESIGN: Replaced the default `ElevatedCard` with a custom `PanelCard`.
+ * This new component uses a subtle border instead of a shadow for a cleaner,
+ * more modern "panel" or "widget" aesthetic. This is a core part of the new design system.
+ */
 @Composable
-fun ElevatedCard(
+fun PanelCard(
     modifier: Modifier = Modifier,
     shape: Shape = MaterialTheme.shapes.large,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
-        modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        modifier = modifier,
         shape = shape,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp, hoveredElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        onClick = onClick ?: {},
+        enabled = onClick != null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, borderColor),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(modifier = Modifier.padding(16.dp), content = content)
     }
@@ -42,7 +53,7 @@ fun GradientBox(
         modifier = modifier
             .clip(shape)
             .background(gradient)
-            .padding(16.dp),
+            .padding(20.dp), // Increased padding for a more spacious feel
         content = content
     )
 }

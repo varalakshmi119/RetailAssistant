@@ -69,4 +69,5 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
             }
             .respectCacheHeaders(false) // Allows caching of temporary URLs by using our keyer
             .build()
-    }}
+    }
+}

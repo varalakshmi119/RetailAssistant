@@ -14,7 +14,8 @@ import androidx.core.view.WindowCompat
 @Composable
 fun RetailAssistantTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Dynamic color is disabled to enforce the custom brand theme.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -29,8 +30,10 @@ fun RetailAssistantTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
+            // DESIGN: Status bar matches the app background for a seamless look.
             window.statusBarColor = colorScheme.background.toArgb()
-            window.navigationBarColor = colorScheme.surface.toArgb() // Or match bottom bar color
+            // DESIGN: Navigation bar matches the surface color for consistency with the bottom nav bar.
+            window.navigationBarColor = colorScheme.surface.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }

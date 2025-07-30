@@ -47,7 +47,7 @@ class CustomerDetailViewModel(
             customerStream.combine(invoicesStream) { customer, invoices ->
                 CustomerDetailAction.DataLoaded(customer, invoices)
             }.onEach { sendAction(it) }
-            .launchIn(viewModelScope)
+                .launchIn(viewModelScope)
         } else {
             setState { copy(isLoading = false) }
             sendEvent(CustomerDetailEvent.ShowMessage("User not authenticated."))

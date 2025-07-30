@@ -30,7 +30,10 @@ fun AddPaymentDialog(
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     val isAmountValid by remember(amount) { derivedStateOf { (amount.toDoubleOrNull() ?: 0.0) > 0.0 } }
+    // DESIGN: Dialogs are styled to match the app's new theme (shape, colors).
     AlertDialog(
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Record a Payment") },
         text = {
@@ -65,6 +68,8 @@ fun AddNoteDialog(
 ) {
     var note by remember { mutableStateOf("") }
     AlertDialog(
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Add a Note") },
         text = {
@@ -96,6 +101,8 @@ fun PostponeDueDateDialog(
     var reason by remember { mutableStateOf("") }
     val isDateValid = newDueDate.isAfter(currentDueDate)
     AlertDialog(
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Postpone Due Date") },
         text = {
@@ -139,6 +146,8 @@ fun ConfirmDeleteDialog(
     isProcessing: Boolean
 ) {
     AlertDialog(
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text(title) },
         text = { Text(text) },

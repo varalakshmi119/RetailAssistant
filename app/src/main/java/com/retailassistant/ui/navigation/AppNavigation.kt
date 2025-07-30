@@ -85,7 +85,7 @@ fun AppNavigation() {
                                 }
                             }
                         }
-                        else -> FullScreenLoading() // Loading, Awaiting...
+                        else -> FullScreenLoading(modifier = Modifier.fillMaxSize()) // Loading, Awaiting...
                     }
                 }
                 authGraph(navController)
@@ -165,7 +165,8 @@ private fun MainScreen(rootNavController: NavHostController) {
         modifier = Modifier.fillMaxSize(),
         bottomBar = { AppBottomBar(navController = bottomBarNavController) },
         floatingActionButton = {
-            if(currentRoute == Screen.Dashboard.route) {
+            // DESIGN: FAB is now more prominent and only shows on the dashboard.
+            if (currentRoute == Screen.Dashboard.route) {
                 FloatingActionButton(
                     onClick = { rootNavController.navigate(Screen.InvoiceCreation.route) },
                     containerColor = MaterialTheme.colorScheme.primary,

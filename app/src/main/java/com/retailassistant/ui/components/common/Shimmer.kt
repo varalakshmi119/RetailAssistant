@@ -20,6 +20,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 @Composable
 fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modifier = composed {
@@ -48,9 +49,9 @@ fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modi
     )
 }
 @Composable
-fun ShimmeringList(modifier: Modifier = Modifier, itemCount: Int = 5) {
+fun ShimmeringList(modifier: Modifier = Modifier, itemCount: Int = 5, itemHeight: Dp = 140.dp) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         userScrollEnabled = false
@@ -59,7 +60,7 @@ fun ShimmeringList(modifier: Modifier = Modifier, itemCount: Int = 5) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(itemHeight)
                     .shimmerBackground(MaterialTheme.shapes.large)
             )
         }

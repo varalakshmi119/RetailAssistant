@@ -64,9 +64,10 @@ fun InvoiceListScreen(
                     }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             SearchBar(
                 value = state.searchQuery,
                 onValueChange = { viewModel.sendAction(InvoiceListAction.Search(it)) },
@@ -81,12 +82,12 @@ fun InvoiceListScreen(
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.sendAction(InvoiceListAction.RefreshData) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.weight(1f)
             ) {
                 val groupedInvoices = state.groupedInvoices
                 when {
                     state.isLoading && groupedInvoices.isEmpty() -> {
-                        ShimmeringList()
+                        ShimmeringList(itemHeight = 90.dp)
                     }
                     groupedInvoices.isEmpty() -> {
                         EmptyState(
@@ -97,24 +98,24 @@ fun InvoiceListScreen(
                     }
                     else -> {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             groupedInvoices.forEach { (status, invoices) ->
                                 stickyHeader {
+                                    // DESIGN: Styled the sticky header for better visual grouping.
                                     Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
-                                        color = MaterialTheme.colorScheme.surface,
+                                        color = MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
                                     ) {
                                         Text(
                                             text = "$status (${invoices.size})",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(vertical = 4.dp)
+                                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp)
                                         )
                                     }
                                 }

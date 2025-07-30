@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -62,9 +63,10 @@ fun CustomerListScreen(
                     }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             SearchBar(
                 value = state.searchQuery,
                 onValueChange = { viewModel.sendAction(CustomerListAction.Search(it)) },
@@ -74,11 +76,11 @@ fun CustomerListScreen(
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.sendAction(CustomerListAction.RefreshData) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.weight(1f)
             ) {
                 when {
                     state.isLoading && state.filteredCustomers.isEmpty() -> {
-                        ShimmeringList()
+                        ShimmeringList(itemHeight = 130.dp)
                     }
                     state.filteredCustomers.isEmpty() -> {
                         EmptyState(
@@ -89,7 +91,6 @@ fun CustomerListScreen(
                     }
                     else -> {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {

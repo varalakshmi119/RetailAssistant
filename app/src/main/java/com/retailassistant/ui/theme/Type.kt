@@ -12,6 +12,8 @@ val provider = GoogleFont.Provider(
     providerPackage = "com.google.android.gms",
     certificates = R.array.com_google_android_gms_fonts_certs
 )
+// DESIGN: Manrope is a clean, modern, and highly legible sans-serif font,
+// perfect for a professional and user-friendly UI.
 val ManropeFont = GoogleFont("Manrope")
 val AppFontFamily = FontFamily(
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Light),
@@ -20,6 +22,7 @@ val AppFontFamily = FontFamily(
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.SemiBold),
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Bold)
 )
+// DESIGN: A carefully crafted typography scale ensures clear visual hierarchy and readability.
 val Typography = Typography(
     displayLarge = TextStyle(fontFamily = AppFontFamily, fontWeight = FontWeight.Bold, fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
     displayMedium = TextStyle(fontFamily = AppFontFamily, fontWeight = FontWeight.Bold, fontSize = 45.sp, lineHeight = 52.sp),

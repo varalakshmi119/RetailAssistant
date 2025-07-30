@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.retailassistant.core.Utils
 import com.retailassistant.data.db.Customer
-import com.retailassistant.ui.components.common.ElevatedCard
+import com.retailassistant.ui.components.common.PanelCard
 import com.retailassistant.ui.theme.AppGradients
 data class CustomerStats(val totalInvoices: Int, val unpaidAmount: Double, val overdueCount: Int)
 @Composable
@@ -46,14 +46,16 @@ fun CustomerCard(
     onEmailClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(modifier = modifier.fillMaxWidth(), onClick = onClick) {
+    // DESIGN: Redesigned CustomerCard using the new PanelCard for a cleaner look.
+    // Enhanced visual hierarchy and spacing for better readability.
+    PanelCard(modifier = modifier.fillMaxWidth(), onClick = onClick) {
         Column {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(name = customer.name)
+                Avatar(name = customer.name, size = 56.dp)
                 Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = customer.name, style = MaterialTheme.typography.titleMedium,
+                        text = customer.name, style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(4.dp))
@@ -72,19 +74,22 @@ fun CustomerCard(
                 }
             }
             if (stats.unpaidAmount > 0) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("Outstanding", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(Utils.formatCurrency(stats.unpaidAmount), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        Text(Utils.formatCurrency(stats.unpaidAmount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                     }
                     if (stats.overdueCount > 0) {
-                        Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.errorContainer) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                        ) {
                             Text(
                                 "${stats.overdueCount} Overdue",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }

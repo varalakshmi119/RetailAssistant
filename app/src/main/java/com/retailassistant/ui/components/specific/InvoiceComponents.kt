@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +35,7 @@ import com.retailassistant.core.Utils
 import com.retailassistant.data.db.InteractionLog
 import com.retailassistant.data.db.InteractionType
 import com.retailassistant.data.db.Invoice
-import com.retailassistant.ui.components.common.ElevatedCard
+import com.retailassistant.ui.components.common.PanelCard
 @Composable
 fun InvoiceCard(
     invoice: Invoice,
@@ -43,20 +45,20 @@ fun InvoiceCard(
     modifier: Modifier = Modifier
 ) {
     val isPaid = invoice.balanceDue <= 0.0
+    // DESIGN: The status color is now more contextual and part of the new color scheme.
     val statusColor = when {
         invoice.isOverdue -> MaterialTheme.colorScheme.error
         isPaid -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.secondary
     }
-    ElevatedCard(modifier = modifier, onClick = onClick) {
-        Row {
-            // Status Indicator
+    PanelCard(modifier = modifier, onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // DESIGN: Status indicator is now a thicker, more prominent pill shape.
             Box(
                 modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .width(4.dp)
-                    .height(50.dp) // Adjust height as needed
-                    .clip(MaterialTheme.shapes.small)
+                    .width(5.dp)
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(statusColor)
             )
             Row(
@@ -66,7 +68,6 @@ fun InvoiceCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left side: Customer and Due Date
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.Center
@@ -78,26 +79,25 @@ fun InvoiceCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
                         InfoChip(icon = Icons.Default.Schedule, text = "Due: $friendlyDueDate")
                     }
                 }
-                // Right side: Amount and Arrow
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Column(horizontalAlignment = Alignment.End) {
+                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
                         Text(
                             text = Utils.formatCurrency(if (isPaid) invoice.totalAmount else invoice.balanceDue),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (isPaid) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (isPaid) "Paid" else "Due",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -135,52 +135,58 @@ fun InfoChip(
 }
 @Composable
 fun InteractionLogItem(log: InteractionLog, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.Top) {
-        val (icon, title, valueInfo) = when (log.type) {
-            InteractionType.PAYMENT -> Triple(
-                Icons.Default.Payment,
-                "Payment Received",
-                "+${Utils.formatCurrency(log.value ?: 0.0)}" to MaterialTheme.colorScheme.tertiary
+    // DESIGN: A more spacious and visually organized activity log item.
+    Column(modifier = modifier) {
+        Row(verticalAlignment = Alignment.Top) {
+            val (icon, title, valueInfo) = when (log.type) {
+                InteractionType.PAYMENT -> Triple(
+                    Icons.Default.Payment,
+                    "Payment Received",
+                    "+${Utils.formatCurrency(log.value ?: 0.0)}" to MaterialTheme.colorScheme.tertiary
+                )
+                InteractionType.NOTE -> Triple(
+                    Icons.AutoMirrored.Filled.Comment,
+                    "Note Added",
+                    null
+                )
+                InteractionType.DUE_DATE_CHANGED -> Triple(
+                    Icons.Default.DateRange,
+                    "Due Date Changed",
+                    null
+                )
+            }
+            Icon(
+                imageVector = icon,
+                contentDescription = log.type.name,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .size(20.dp)
             )
-            InteractionType.NOTE -> Triple(
-                Icons.AutoMirrored.Filled.Comment,
-                "Note Added",
-                null
-            )
-            InteractionType.DUE_DATE_CHANGED -> Triple(
-                Icons.Default.DateRange,
-                "Due Date Changed",
-                null
-            )
-        }
-        Icon(
-            imageVector = icon,
-            contentDescription = log.type.name,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 4.dp).size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                valueInfo?.let { (text, color) ->
-                    Text(text, fontWeight = FontWeight.Bold, color = color, style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                    valueInfo?.let { (text, color) ->
+                        Text(text, fontWeight = FontWeight.Bold, color = color, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
+                log.notes?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = Utils.formatTimestamp(log.createdAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
             }
-            log.notes?.let {
-                Spacer(Modifier.height(4.dp))
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = Utils.formatTimestamp(log.createdAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
         }
+        HorizontalDivider(modifier = Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

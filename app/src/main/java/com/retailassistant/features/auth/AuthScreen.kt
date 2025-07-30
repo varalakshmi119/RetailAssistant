@@ -1,4 +1,6 @@
 package com.retailassistant.features.auth
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -36,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.retailassistant.ui.components.common.FormTextField
 import com.retailassistant.ui.components.common.GradientButton
+import com.retailassistant.ui.theme.AppGradients
 import org.koin.androidx.compose.koinViewModel
 @Composable
 fun AuthScreen(
@@ -49,7 +53,6 @@ fun AuthScreen(
             when (event) {
                 is AuthEvent.NavigateToDashboard -> onLoginSuccess()
                 is AuthEvent.ShowMessage -> {
-                    // Truncate very long messages to prevent layout issues
                     val message = if (event.message.length > 200) {
                         event.message.take(200) + "..."
                     } else {
@@ -62,78 +65,93 @@ fun AuthScreen(
     }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.surface
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
-                .safeDrawingPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Add fixed spacer to push content towards center
-            Spacer(modifier = Modifier.height(80.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
-                contentDescription = "App Logo",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Retail Assistant",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = if (state.isSignUpMode) "Create an account to track your business." else "Welcome back! Sign in to continue.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(48.dp))
-            FormTextField(
-                value = state.email,
-                onValueChange = { viewModel.sendAction(AuthAction.UpdateEmail(it)) },
-                label = "Email Address",
-                enabled = !state.isLoading,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                leadingIcon = { Icon(Icons.Default.Email, "Email") }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            FormTextField(
-                value = state.password,
-                onValueChange = { viewModel.sendAction(AuthAction.UpdatePassword(it)) },
-                label = "Password",
-                enabled = !state.isLoading,
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                leadingIcon = { Icon(Icons.Default.Lock, "Password") }
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            GradientButton(
-                text = if (state.isSignUpMode) "Sign Up" else "Sign In",
-                onClick = { viewModel.sendAction(AuthAction.Submit) },
-                isLoading = state.isLoading,
-                icon = if (state.isSignUpMode) Icons.Default.PersonAdd else Icons.AutoMirrored.Filled.Login
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(
-                onClick = { viewModel.sendAction(AuthAction.ToggleMode) },
-                enabled = !state.isLoading
-            ) {
-                Text(
-                    text = if (state.isSignUpMode) "Already have an account? Sign In" else "Don't have an account? Sign Up"
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.1f),
+                            MaterialTheme.colorScheme.surface
+                        ),
+                        startY = 0f,
+                        endY = 1000f
+                    )
                 )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState())
+                    .safeDrawingPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(100.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
+                    contentDescription = "App Logo",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Retail Assistant",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (state.isSignUpMode) "Create an account to get started." else "Welcome back! Sign in to continue.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Spacer(modifier = Modifier.height(48.dp))
+                FormTextField(
+                    value = state.email,
+                    onValueChange = { viewModel.sendAction(AuthAction.UpdateEmail(it)) },
+                    label = "Email Address",
+                    enabled = !state.isLoading,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    leadingIcon = { Icon(Icons.Default.Email, "Email") }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                FormTextField(
+                    value = state.password,
+                    onValueChange = { viewModel.sendAction(AuthAction.UpdatePassword(it)) },
+                    label = "Password",
+                    enabled = !state.isLoading,
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    leadingIcon = { Icon(Icons.Default.Lock, "Password") }
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                GradientButton(
+                    text = if (state.isSignUpMode) "Create Account" else "Sign In",
+                    onClick = { viewModel.sendAction(AuthAction.Submit) },
+                    isLoading = state.isLoading,
+                    icon = if (state.isSignUpMode) Icons.Default.PersonAdd else Icons.AutoMirrored.Filled.Login,
+                    gradient = AppGradients.Primary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(
+                    onClick = { viewModel.sendAction(AuthAction.ToggleMode) },
+                    enabled = !state.isLoading
+                ) {
+                    Text(
+                        text = if (state.isSignUpMode) "Already have an account? Sign In" else "Don't have an account? Sign Up"
+                    )
+                }
+                Spacer(modifier = Modifier.height(80.dp))
             }
-            // Add fixed spacer at the bottom
-            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

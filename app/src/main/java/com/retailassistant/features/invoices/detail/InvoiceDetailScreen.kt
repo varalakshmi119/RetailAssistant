@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
@@ -31,16 +30,15 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,13 +60,14 @@ import com.retailassistant.core.SharingUtils
 import com.retailassistant.core.Utils
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.db.InvoiceStatus
+import com.retailassistant.ui.components.common.ActionButton
 import com.retailassistant.ui.components.common.AddNoteDialog
 import com.retailassistant.ui.components.common.AddPaymentDialog
-import com.retailassistant.ui.components.common.ActionButton
 import com.retailassistant.ui.components.common.CenteredTopAppBar
 import com.retailassistant.ui.components.common.ConfirmDeleteDialog
 import com.retailassistant.ui.components.common.EmptyState
 import com.retailassistant.ui.components.common.FullScreenLoading
+import com.retailassistant.ui.components.common.PanelCard
 import com.retailassistant.ui.components.common.PostponeDueDateDialog
 import com.retailassistant.ui.components.specific.Avatar
 import com.retailassistant.ui.components.specific.InteractionLogItem
@@ -109,13 +108,12 @@ fun InvoiceDetailScreen(
                     if (state.invoice != null) {
                         IconButton(
                             onClick = {
-                                SharingUtils.shareInvoiceViaWhatsApp(
+                                SharingUtils.shareInvoiceGeneral(
                                     context = context,
                                     invoice = state.invoice!!,
                                     customer = state.customer,
                                     imageBytes = null, // TODO: Add image bytes if available
                                     onError = { error ->
-                                        // Show error via snackbar
                                         viewModel.sendAction(InvoiceDetailAction.ShowMessage(error))
                                     }
                                 )
@@ -130,7 +128,8 @@ fun InvoiceDetailScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         when {
             state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
@@ -138,9 +137,9 @@ fun InvoiceDetailScreen(
             else -> {
                 val invoice = state.invoice!!
                 LazyColumn(
-                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    modifier = Modifier.padding(padding),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
                         CustomerHeader(
@@ -162,10 +161,19 @@ fun InvoiceDetailScreen(
                     item { InvoiceImageCard(imageUrl = state.imageUrl) }
                     if (state.logs.isNotEmpty()) {
                         item {
-                            Text("Activity Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        }
-                        items(state.logs, key = { it.id }) { log ->
-                            InteractionLogItem(log = log, modifier = Modifier.animateItem())
+                            PanelCard {
+                                Column(modifier = Modifier.padding(4.dp)) {
+                                    Text(
+                                        "Activity Log",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    state.logs.forEach { log ->
+                                        InteractionLogItem(log = log)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -204,24 +212,52 @@ private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAct
 }
 @Composable
 private fun CustomerHeader(customerName: String, customerPhone: String?, onCall: () -> Unit, onNavigate: () -> Unit) {
-    ElevatedCard(onClick = onNavigate) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Avatar(name = customerName)
+    PanelCard(
+        onClick = onNavigate
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Avatar(name = customerName, size = 48.dp)
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text(customerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = customerName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     customerPhone?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
-            if (!customerPhone.isNullOrBlank()) {
-                IconButton(onClick = onCall, colors = IconButtonDefaults.filledTonalIconButtonColors()) {
-                    Icon(Icons.Default.Call, "Call $customerName")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (!customerPhone.isNullOrBlank()) {
+                    IconButton(onClick = onCall) {
+                        Icon(Icons.Default.Call, "Call $customerName")
+                    }
                 }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    "View customer",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, "View customer", modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -231,42 +267,127 @@ private fun PaymentSummaryCard(invoice: Invoice) {
         targetValue = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f,
         label = "paymentProgress"
     )
-    ElevatedCard {
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Text("Total Amount", style = MaterialTheme.typography.bodyLarge)
-            Text(Utils.formatCurrency(invoice.totalAmount), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(16.dp))
-        LinearProgressIndicator(
-            progress = { progress.coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(10.dp).clip(MaterialTheme.shapes.small),
-            color = if (invoice.status == InvoiceStatus.PAID) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-            Text("${Utils.formatCurrency(invoice.amountPaid)} Paid", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
-            Text("${Utils.formatCurrency(invoice.balanceDue)} Due", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-        }
-        HorizontalDivider(Modifier.padding(vertical = 16.dp))
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Column {
-                Text("Due Date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+    PanelCard {
+        Column(
+            modifier = Modifier.padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Total Amount",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    Utils.formatCurrency(invoice.totalAmount),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(MaterialTheme.shapes.small),
+                    color = if (invoice.status == InvoiceStatus.PAID) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "${Utils.formatCurrency(invoice.amountPaid)} Paid",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "${Utils.formatCurrency(invoice.balanceDue)} Due",
+                        color = if (invoice.balanceDue > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Due Date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        invoice.dueDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                val (statusText, statusColor, containerColor) = when {
+                    invoice.isOverdue -> Triple("Overdue", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
+                    invoice.status == InvoiceStatus.PAID -> Triple("Paid", MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.tertiaryContainer)
+                    else -> Triple("Unpaid", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+                }
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = containerColor.copy(alpha = 0.5f)
+                ) {
+                    Text(
+                        statusText,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
 }
 @Composable
 private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit, onAddNote: () -> Unit, onPostpone: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (invoiceStatus != InvoiceStatus.PAID) {
-            ActionButton(text = "Add Payment", icon = Icons.Default.Payment, onClick = onAddPayment, color = MaterialTheme.colorScheme.primary)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ActionButton(text = "Add Note", icon = Icons.AutoMirrored.Filled.Comment, onClick = onAddNote, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
+    PanelCard {
+        Column(
+            modifier = Modifier
+                .padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Quick Actions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             if (invoiceStatus != InvoiceStatus.PAID) {
-                ActionButton(text = "Postpone", icon = Icons.Default.DateRange, onClick = onPostpone, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary)
+                ActionButton(
+                    text = "Add Payment",
+                    icon = Icons.Default.Payment,
+                    onClick = onAddPayment
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionButton(
+                    text = "Add Note",
+                    icon = Icons.AutoMirrored.Filled.Comment,
+                    onClick = onAddNote,
+                    modifier = Modifier.weight(1f),
+                    isTonal = true
+                )
+                if (invoiceStatus != InvoiceStatus.PAID) {
+                    ActionButton(
+                        text = "Postpone",
+                        icon = Icons.Default.DateRange,
+                        onClick = onPostpone,
+                        modifier = Modifier.weight(1f),
+                        isTonal = true
+                    )
+                }
             }
         }
     }
@@ -274,26 +395,57 @@ private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit
 @Composable
 private fun InvoiceImageCard(imageUrl: String?) {
     var isExpanded by remember { mutableStateOf(false) }
-    ElevatedCard(modifier = Modifier.clickable { isExpanded = !isExpanded }) {
-        SubcomposeAsyncImage(
-            model = imageUrl,
-            contentDescription = "Invoice Scan",
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 200.dp, max = if (isExpanded) 600.dp else 200.dp)
-                .animateContentSize(),
-            contentScale = if (isExpanded) ContentScale.Fit else ContentScale.Crop,
-            loading = { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } },
-            error = {
-                Box(Modifier.fillMaxSize().padding(16.dp), Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.BrokenImage, null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Image failed to load", style = MaterialTheme.typography.bodyMedium)
+    PanelCard {
+        Column(modifier = Modifier.clickable { isExpanded = !isExpanded }) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Scanned Invoice",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (isExpanded) "Collapse" else "Expand",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            SubcomposeAsyncImage(
+                model = imageUrl,
+                contentDescription = "Invoice Scan",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 200.dp, max = if (isExpanded) 600.dp else 200.dp)
+                    .animateContentSize(),
+                contentScale = if (isExpanded) ContentScale.Fit else ContentScale.Crop,
+                loading = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                },
+                error = {
+                    Box(
+                        Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.BrokenImage, null, tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Text("Image failed to load", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
-            }
-        )
+            )
+        }
     }
 }
 private fun makePhoneCall(context: Context, phoneNumber: String) {
