@@ -25,11 +25,13 @@ import kotlinx.serialization.json.Json
 @Serializable private data class GeminiErrorResponse(val error: ErrorBody)
 @Serializable private data class ErrorBody(val message: String)
 
+
 /**
  * A robust client for interacting with the Google Gemini API. It handles request
  * building, JSON response parsing, and error handling gracefully.
  */
 class GeminiClient(private val httpClient: HttpClient) {
+
     private val modelId = "gemini-1.5-flash"
     private val apiKey = BuildConfig.GEMINI_API_KEY
     // IMPROVEMENT (Security): Removed API key from URL. It will be sent in a header.
@@ -63,6 +65,7 @@ class GeminiClient(private val httpClient: HttpClient) {
             val response = jsonParser.decodeFromString<GeminiResponse>(responseString)
             val jsonText = response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 ?: throw Exception("AI response was empty or malformed.")
+
             // Clean the response from markdown code block markers
             val cleanedJsonText = jsonText.removeSurrounding("```json\n", "\n```").trim()
             jsonParser.decodeFromString<ExtractedInvoiceData>(cleanedJsonText)
@@ -88,16 +91,19 @@ class GeminiClient(private val httpClient: HttpClient) {
             - "phone_number": The customer's phone number.
             - "email": The customer's email address.
             - "total_amount": The final total amount as a numeric value (e.g., 123.45 or 15000).
+
             **CRITICAL RULES:**
             1. Your entire output MUST BE ONLY the JSON object. No extra text, comments, markdown, or explanations.
             2. If a specific value is not found, use `null` for that field in the JSON.
             3. The JSON must be perfectly valid. `total_amount` MUST be a number, not a string. Do not include currency symbols.
         """.trimIndent()
+
         val contents = listOf(Content(listOf(
             Part(text = prompt),
             Part(inlineData = InlineData("image/jpeg", base64ImageData))
         )))
         val generationConfig = GenerationConfig(responseMimeType = "application/json")
+
         return GeminiRequest(contents, generationConfig)
     }
 }

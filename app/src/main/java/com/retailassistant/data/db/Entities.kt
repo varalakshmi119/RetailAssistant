@@ -19,6 +19,7 @@ import java.util.UUID
 
 // Models are shared between Room and Supabase for serialization consistency.
 // Indices are added for production-grade performance on large datasets.
+
 object LocalDateSerializer : KSerializer<LocalDate> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
     override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeString(value.toString())

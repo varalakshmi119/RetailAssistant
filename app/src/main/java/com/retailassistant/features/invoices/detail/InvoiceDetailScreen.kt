@@ -123,7 +123,7 @@ fun InvoiceDetailScreen(
             state.isLoading -> FullScreenLoading(modifier = Modifier.padding(padding))
             state.invoice == null -> EmptyState("Not Found", "This invoice may have been deleted.", Icons.Default.Error, Modifier.padding(padding))
             else -> {
-                val invoice = state.invoice
+                val invoice = state.invoice!!
                 LazyColumn(
                     modifier = Modifier.padding(padding).fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -137,17 +137,16 @@ fun InvoiceDetailScreen(
                             onNavigate = { state.customer?.id?.let(onNavigateToCustomer) }
                         )
                     }
-                    item { PaymentSummaryCard(invoice!!) }
+                    item { PaymentSummaryCard(invoice) }
                     item {
                         ActionButtons(
-                            invoiceStatus = invoice!!.status,
+                            invoiceStatus = invoice.status,
                             onAddPayment = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddPayment)) },
                             onAddNote = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddNote)) },
                             onPostpone = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) }
                         )
                     }
                     item { InvoiceImageCard(imageUrl = state.imageUrl) }
-
                     if (state.logs.isNotEmpty()) {
                         item {
                             Text("Activity Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -222,7 +221,6 @@ private fun PaymentSummaryCard(invoice: Invoice) {
         targetValue = if (invoice.totalAmount > 0) (invoice.amountPaid / invoice.totalAmount).toFloat() else 0f,
         label = "paymentProgress"
     )
-
     ElevatedCard {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Total Amount", style = MaterialTheme.typography.bodyLarge)

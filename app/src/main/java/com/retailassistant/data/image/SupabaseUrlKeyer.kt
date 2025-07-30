@@ -16,7 +16,6 @@ class SupabaseUrlKeyer : Keyer<String> {
     override fun key(data: String, options: Options): String? {
         // Only apply this logic to Supabase storage URLs
         if (!data.contains("/storage/v1/object/sign/")) return null
-
         return try {
             val httpUrl = data.toHttpUrl()
             val pathSegments = httpUrl.pathSegments

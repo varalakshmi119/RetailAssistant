@@ -75,6 +75,7 @@ fun CustomerListScreen(
                 placeholder = "Search by name or phone...",
                 modifier = Modifier.padding(16.dp)
             )
+
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.sendAction(CustomerListAction.RefreshData) },

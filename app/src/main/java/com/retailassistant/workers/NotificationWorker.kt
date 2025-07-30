@@ -37,17 +37,22 @@ class NotificationWorker(
     }
 
     override suspend fun doWork(): Result {
-        val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.success()
+        val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.success() // No user, no work.
 
         return try {
+            // First, sync data to ensure we have the latest information
             repository.syncAllUserData(userId).getOrThrow()
+
+            // Then, query the local database
             val overdueInvoices = repository.getInvoicesStream(userId).first().filter { it.isOverdue }
 
             if (overdueInvoices.isNotEmpty()) {
                 showOverdueNotification(overdueInvoices.size)
             }
+
             Result.success()
         } catch (e: Exception) {
+            // If sync fails or any other error occurs, retry later
             Result.retry()
         }
     }
@@ -64,7 +69,7 @@ class NotificationWorker(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification) // Ensure this drawable exists
             .setContentTitle("Action Required: Overdue Invoices")
             .setContentText("You have $count overdue invoice${if (count > 1) "s" else ""} requiring attention.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -78,6 +83,7 @@ class NotificationWorker(
                 return
             }
         }
+
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 

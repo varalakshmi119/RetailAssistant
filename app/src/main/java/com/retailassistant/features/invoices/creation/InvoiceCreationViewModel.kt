@@ -142,7 +142,6 @@ class InvoiceCreationViewModel(
         setState { copy(isAiExtracting = false) }
     }
 
-
     private fun saveInvoice() {
         if (userId == null) {
             sendEvent(InvoiceCreationEvent.ShowMessage("User not authenticated. Please sign in again."))
@@ -152,7 +151,6 @@ class InvoiceCreationViewModel(
             sendEvent(InvoiceCreationEvent.ShowMessage("Please fill all required fields and scan an invoice."))
             return
         }
-
         viewModelScope.launch {
             setState { copy(isSaving = true) }
             val currentImageBytes = imageBytes
@@ -161,7 +159,6 @@ class InvoiceCreationViewModel(
                 setState { copy(isSaving = false) }
                 return@launch
             }
-
             val state = uiState.value
             repository.addInvoice(
                 userId = userId,

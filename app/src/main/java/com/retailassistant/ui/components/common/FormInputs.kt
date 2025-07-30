@@ -28,6 +28,8 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -83,7 +85,6 @@ fun FormTextField(
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -171,7 +172,6 @@ fun SearchBar(
     )
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoCompleteCustomerField(
@@ -217,7 +217,7 @@ fun AutoCompleteCustomerField(
         )
 
         if (expanded && filteredSuggestions.isNotEmpty()) {
-            androidx.compose.material3.DropdownMenu(
+            DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
                 modifier = Modifier
@@ -227,7 +227,7 @@ fun AutoCompleteCustomerField(
                 properties = PopupProperties(focusable = false)
             ) {
                 filteredSuggestions.forEach { customer ->
-                    androidx.compose.material3.DropdownMenuItem(
+                    DropdownMenuItem(
                         text = {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -252,7 +252,6 @@ fun AutoCompleteCustomerField(
         }
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -183,11 +183,13 @@ private fun ImageSelectionSection(
                 }
             }
         }
+
         if (isAiExtracting) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
+
         if (imageUri != null && !isAiExtracting) {
             IconButton(
                 onClick = onClearClick,
@@ -240,6 +242,7 @@ private fun InvoiceForm(state: InvoiceCreationState, onAction: (InvoiceCreationA
                 modifier = Modifier.weight(1f)
             )
         }
+
         SectionHeader("Contact Info (Optional)")
         FormTextField(
             value = state.phoneNumber,

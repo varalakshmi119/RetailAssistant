@@ -10,6 +10,7 @@ import java.util.Locale
  * A centralized utility object for common formatting tasks, ensuring consistency across the app.
  */
 object Utils {
+
     private val currencyFormatter by lazy {
         NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     }

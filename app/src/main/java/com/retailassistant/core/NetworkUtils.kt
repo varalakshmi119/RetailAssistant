@@ -17,13 +17,11 @@ object NetworkUtils {
     ): T {
         var currentDelay = initialDelayMs
         var lastException: Exception? = null
-
         repeat(maxRetries) { attempt ->
             try {
                 return operation()
             } catch (e: Exception) {
                 lastException = e
-
                 if (!ErrorHandler.isNetworkError(e) || ErrorHandler.isAuthError(e)) {
                     throw e // Don't retry on non-network or auth errors
                 }

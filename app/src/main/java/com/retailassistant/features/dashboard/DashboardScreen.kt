@@ -82,7 +82,6 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showLogoutDialog by remember { mutableStateOf(false) }
-
     val context = LocalContext.current
     var showPermissionCard by rememberSaveable { mutableStateOf(true) }
     var hasNotificationPermission by remember {
@@ -177,6 +176,7 @@ fun DashboardScreen(
                         )
                     }
                 }
+
                 item {
                     DashboardStats(
                         totalUnpaid = state.totalUnpaid,
@@ -191,6 +191,7 @@ fun DashboardScreen(
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
+
                 if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
                     items(count = 3) {
                         Box(
@@ -225,7 +226,6 @@ fun DashboardScreen(
     }
 }
 
-// --- MODIFICATION START: New composable for the permission card ---
 @Composable
 private fun PermissionRequestCard(
     onAllowClick: () -> Unit,
@@ -278,7 +278,6 @@ private fun PermissionRequestCard(
         }
     }
 }
-// --- MODIFICATION END ---
 
 @Composable
 private fun DashboardHeader(userName: String?) {

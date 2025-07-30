@@ -22,11 +22,13 @@ interface UiEvent
  * @param E The type of the UI Event (for one-off effects like navigation or Snackbars).
  */
 abstract class MviViewModel<S : UiState, A : UiAction, E : UiEvent> : ViewModel() {
+
     private val initialState: S by lazy { createInitialState() }
     abstract fun createInitialState(): S
 
     private val _uiState: MutableStateFlow<S> = MutableStateFlow(initialState)
     val uiState = _uiState.asStateFlow()
+
     private val _action: MutableSharedFlow<A> = MutableSharedFlow(
         extraBufferCapacity = 64
     )

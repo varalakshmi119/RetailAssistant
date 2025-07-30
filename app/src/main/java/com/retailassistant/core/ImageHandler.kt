@@ -55,7 +55,6 @@ class ImageHandler(private val context: Context) {
     private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int): Int {
         val (height: Int, width: Int) = options.outHeight to options.outWidth
         var inSampleSize = 1
-
         if (height > reqWidth || width > reqWidth) {
             val halfHeight: Int = height / 2
             val halfWidth: Int = width / 2

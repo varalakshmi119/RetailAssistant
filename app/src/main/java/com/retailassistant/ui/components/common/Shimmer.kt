@@ -35,11 +35,13 @@ fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modi
         ),
         label = "shimmer-translate"
     )
+
     val shimmerColors = listOf(
         MaterialTheme.colorScheme.surfaceContainer,
         MaterialTheme.colorScheme.surfaceVariant,
         MaterialTheme.colorScheme.surfaceContainer,
     )
+
     background(
         brush = Brush.linearGradient(
             colors = shimmerColors,

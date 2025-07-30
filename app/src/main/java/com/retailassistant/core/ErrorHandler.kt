@@ -1,5 +1,4 @@
 package com.retailassistant.core
-
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.RestException
 import java.net.SocketTimeoutException
@@ -37,7 +36,6 @@ object ErrorHandler {
         } catch (e: Exception) {
             null  // Fallback if not valid JSON
         }
-
         val code = errorJson?.get("code")?.jsonPrimitive?.content
         val details = errorJson?.get("details")?.jsonPrimitive?.content
         val message = errorJson?.get("message")?.jsonPrimitive?.content ?: exception.message
@@ -51,6 +49,7 @@ object ErrorHandler {
                 }
             }
             POSTGRES_FOREIGN_KEY_VIOLATION_CODE -> "Invalid reference. The related item may have been deleted."
+
             "email_not_confirmed" -> "Please confirm your email, then sign in."
             "invalid_credentials" -> "Invalid email or password."
             "user_already_exists", "email_exists", "phone_exists" -> "An account with this email or phone already exists. Please sign in."
@@ -61,6 +60,7 @@ object ErrorHandler {
             "otp_expired" -> "OTP code has expired. Please request a new one."
             "validation_failed" -> "Invalid input format. Please check your details."
             "identity_already_exists" -> "This identity is already linked to an account."
+
             else -> when (exception.statusCode) {
                 401 -> "Authentication failed. Please sign in again."
                 403 -> "You don't have permission to perform this action."

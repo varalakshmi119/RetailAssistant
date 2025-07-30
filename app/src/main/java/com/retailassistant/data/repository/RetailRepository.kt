@@ -36,6 +36,7 @@ interface RetailRepository {
     suspend fun addPayment(userId: String, invoiceId: String, amount: Double, note: String?): Result<Unit>
     suspend fun addNote(userId: String, invoiceId: String, note: String): Result<Unit>
     suspend fun postponeDueDate(userId: String, invoiceId: String, newDueDate: LocalDate, reason: String?): Result<Unit>
+
     suspend fun deleteInvoice(invoiceId: String): Result<Unit>
     suspend fun deleteCustomer(customerId: String): Result<Unit>
 

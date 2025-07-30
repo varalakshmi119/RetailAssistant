@@ -79,6 +79,7 @@ fun AuthScreen(
         ) {
             // Add fixed spacer to push content towards center
             Spacer(modifier = Modifier.height(80.dp))
+
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
                 contentDescription = "App Logo",

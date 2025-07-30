@@ -93,6 +93,7 @@ class CustomerListViewModel(
 
     private fun processLoadedData(customers: List<Customer>, invoices: List<Invoice>) {
         val invoicesByCustomerId = invoices.groupBy { it.customerId }
+
         val customersWithStats = customers.map { customer ->
             val customerInvoices = invoicesByCustomerId[customer.id] ?: emptyList()
             val stats = CustomerStats(

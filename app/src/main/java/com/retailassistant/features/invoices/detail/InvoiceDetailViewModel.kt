@@ -10,6 +10,7 @@ import com.retailassistant.data.db.InteractionLog
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.repository.RetailRepository
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -57,6 +58,8 @@ class InvoiceDetailViewModel(
     private val repository: RetailRepository,
     private val supabase: SupabaseClient
 ) : MviViewModel<InvoiceDetailState, InvoiceDetailAction, InvoiceDetailEvent>() {
+
+    private val userId: String? = supabase.auth.currentUserOrNull()?.id
 
     init {
         val invoiceDetailsStream = repository.getInvoiceWithDetails(invoiceId)
@@ -131,7 +134,7 @@ class InvoiceDetailViewModel(
     }
 
     private fun addPayment(amount: Double, note: String?) {
-        val userId = uiState.value.invoice?.userId ?: return
+        if (userId == null) return
         if (amount <= 0) {
             sendEvent(InvoiceDetailEvent.ShowMessage("Payment amount must be positive."))
             return
@@ -140,7 +143,7 @@ class InvoiceDetailViewModel(
     }
 
     private fun addNote(note: String) {
-        val userId = uiState.value.invoice?.userId ?: return
+        if (userId == null) return
         if (note.isBlank()) {
             sendEvent(InvoiceDetailEvent.ShowMessage("Note cannot be empty."))
             return
@@ -149,7 +152,7 @@ class InvoiceDetailViewModel(
     }
 
     private fun postponeDueDate(newDueDate: LocalDate, reason: String?) {
-        val userId = uiState.value.invoice?.userId ?: return
+        if (userId == null) return
         performAction(repoCall = { repository.postponeDueDate(userId, invoiceId, newDueDate, reason) })
     }
 

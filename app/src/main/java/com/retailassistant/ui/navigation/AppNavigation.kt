@@ -31,6 +31,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
@@ -89,7 +90,6 @@ fun AppNavigation() {
                                 }
                             }
                         }
-
                         else -> FullScreenLoading() // Loading, Awaiting...
                     }
                 }
@@ -163,13 +163,14 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
 private fun MainScreen(rootNavController: NavHostController) {
     val bottomBarNavController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
-    val currentRoute by bottomBarNavController.currentBackStackEntryFlow.collectAsState(bottomBarNavController.currentBackStackEntry)
+    val currentNavBackStackEntry by bottomBarNavController.currentBackStackEntryAsState()
+    val currentRoute = currentNavBackStackEntry?.destination?.route
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = { AppBottomBar(navController = bottomBarNavController) },
         floatingActionButton = {
-            if(currentRoute?.destination?.route == Screen.Dashboard.route) {
+            if(currentRoute == Screen.Dashboard.route) {
                 FloatingActionButton(
                     onClick = { rootNavController.navigate(Screen.InvoiceCreation.route) },
                     containerColor = MaterialTheme.colorScheme.primary,

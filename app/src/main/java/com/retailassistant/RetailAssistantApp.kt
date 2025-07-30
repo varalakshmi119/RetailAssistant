@@ -50,7 +50,7 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             NotificationWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.KEEP, // Or REPLACE if the worker logic needs updating
             periodicWorkRequest
         )
     }

@@ -81,6 +81,7 @@ class DashboardViewModel(
         val invoicesWithCustomers = invoices.map { invoice ->
             InvoiceWithCustomer(invoice, customerMap[invoice.customerId])
         }
+
         setState {
             copy(
                 invoicesWithCustomers = invoicesWithCustomers.take(10), // Show most recent 10
@@ -98,7 +99,7 @@ class DashboardViewModel(
             if (!isInitial) setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(DashboardEvent.ShowError(error.message ?: "Sync failed"))
-                if (!isInitial) setState { copy(isRefreshing = false) }
+                setState { copy(isRefreshing = false, isLoading = false) }
             }
         }
     }
