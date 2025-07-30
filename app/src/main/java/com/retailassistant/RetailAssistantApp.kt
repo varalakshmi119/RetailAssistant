@@ -6,7 +6,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.WorkRequest
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
@@ -30,25 +29,24 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
         setupPeriodicWork()
     }
     private fun setupPeriodicWork() {
-    val constraints = Constraints.Builder()
-        .setRequiredNetworkType(NetworkType.CONNECTED)
-        .build()
-
-    val periodicWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
-        .setConstraints(constraints)
-        .setBackoffCriteria(
-            BackoffPolicy.EXPONENTIAL,
-            10, // Minimum backoff delay in TimeUnit.MILLISECONDS (must be >= 10 seconds)
-            TimeUnit.SECONDS
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val periodicWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                10,
+                TimeUnit.SECONDS
+            )
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            NotificationWorker.WORK_NAME,
+            // FIX: Use REPLACE to ensure the worker is updated on app updates.
+            ExistingPeriodicWorkPolicy.REPLACE,
+            periodicWorkRequest
         )
-        .build()
-
-    WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-        NotificationWorker.WORK_NAME,
-        ExistingPeriodicWorkPolicy.KEEP, // Use REPLACE if you want to update the worker logic
-        periodicWorkRequest
-    )
-}
+    }
     /**
      * Provides a custom Coil ImageLoader to configure a robust disk cache and a custom keyer.
      * The SupabaseUrlKeyer is crucial for caching Supabase's signed image URLs effectively.
@@ -71,5 +69,4 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
             }
             .respectCacheHeaders(false) // Allows caching of temporary URLs by using our keyer
             .build()
-    }
-}
+    }}

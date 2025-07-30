@@ -63,8 +63,12 @@ object ErrorHandler {
             }
         }
     }
-    fun isNetworkError(throwable: Throwable): Boolean =
-        throwable is SocketTimeoutException || throwable is UnknownHostException || throwable is HttpRequestException
+    // FIX: Updated logic to correctly identify transient server errors as retriable network errors.
+    fun isNetworkError(throwable: Throwable): Boolean = when (throwable) {
+        is SocketTimeoutException, is UnknownHostException, is HttpRequestException -> true
+        is RestException -> throwable.statusCode in 500..599 // e.g., 502, 503, 504 are network-like errors
+        else -> false
+    }
     fun isAuthError(throwable: Throwable): Boolean {
         return when (throwable) {
             is RestException -> throwable.statusCode == 401 || throwable.statusCode == 403

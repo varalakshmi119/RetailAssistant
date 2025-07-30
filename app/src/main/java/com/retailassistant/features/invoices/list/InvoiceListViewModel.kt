@@ -118,7 +118,7 @@ class InvoiceListViewModel(
             if (!isInitial) setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(InvoiceListEvent.ShowError(error.message ?: "Sync failed"))
-                // This handles the infinite loading bug when offline
+                // FIX: Reset both loading states on failure to prevent infinite loading
                 setState { copy(isRefreshing = false, isLoading = false) }
             }
             // On success, isRefreshing is set to false by the DataLoaded action

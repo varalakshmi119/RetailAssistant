@@ -104,7 +104,8 @@ class CustomerListViewModel(
             setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(CustomerListEvent.ShowError(error.message ?: "Sync failed"))
-                setState { copy(isRefreshing = false) }
+                // FIX: Reset both loading states on failure to prevent infinite loading
+                setState { copy(isRefreshing = false, isLoading = false) }
             }
             // isRefreshing is set to false in processLoadedData upon success
         }

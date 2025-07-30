@@ -38,7 +38,7 @@ data class InvoiceCreationState(
         get() = customerName.trim().length >= 2 &&
                 (amount.toDoubleOrNull() ?: 0.0) > 0.0 &&
                 scannedImageUri != null &&
-                dueDate.isAfter(issueDate) && // Ensure due date is after issue date
+                !dueDate.isBefore(issueDate) && // Allow same-day due date
                 !isAiExtracting &&
                 !isSaving
 }
@@ -137,12 +137,13 @@ class InvoiceCreationViewModel(
             return
         }
         val state = uiState.value
+        // FIX: Provide specific validation error messages
         if (!state.isFormValid) {
             val errorMessage = when {
                 state.customerName.trim().length < 2 -> "Customer name must be at least 2 characters."
                 (state.amount.toDoubleOrNull() ?: 0.0) <= 0.0 -> "Amount must be greater than zero."
                 state.scannedImageUri == null -> "Please scan an invoice image."
-                !state.dueDate.isAfter(state.issueDate) -> "Due date must be after issue date."
+                state.dueDate.isBefore(state.issueDate) -> "Due date cannot be before the issue date."
                 else -> "Please fill all required fields and scan an invoice."
             }
             sendEvent(InvoiceCreationEvent.ShowMessage(errorMessage))
@@ -156,16 +157,16 @@ class InvoiceCreationViewModel(
                 setState { copy(isSaving = false) }
                 return@launch
             }
-            val state = uiState.value
+            val currentState = uiState.value
             repository.addInvoice(
                 userId = userId,
-                existingCustomerId = state.selectedCustomerId,
-                customerName = state.customerName.trim(),
-                customerPhone = state.phoneNumber.trim().takeIf { it.isNotBlank() },
-                customerEmail = state.email.trim().takeIf { it.isNotBlank() },
-                issueDate = state.issueDate,
-                dueDate = state.dueDate,
-                totalAmount = state.amount.toDouble(),
+                existingCustomerId = currentState.selectedCustomerId,
+                customerName = currentState.customerName.trim(),
+                customerPhone = currentState.phoneNumber.trim().takeIf { it.isNotBlank() },
+                customerEmail = currentState.email.trim().takeIf { it.isNotBlank() },
+                issueDate = currentState.issueDate,
+                dueDate = currentState.dueDate,
+                totalAmount = currentState.amount.toDouble(),
                 imageBytes = currentImageBytes
             ).onSuccess {
                 sendEvent(InvoiceCreationEvent.NavigateBack)

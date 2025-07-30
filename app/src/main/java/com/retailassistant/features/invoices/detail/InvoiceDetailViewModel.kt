@@ -32,9 +32,12 @@ data class InvoiceDetailState(
     val activeDialog: ActiveDialog? = null,
 ) : UiState
 sealed interface InvoiceDetailAction : UiAction {
+    // Internal actions for loading data
     data class DetailsLoaded(val invoice: Invoice, val logs: List<InteractionLog>) : InvoiceDetailAction
     data class CustomerLoaded(val customer: Customer) : InvoiceDetailAction
     data class ImageUrlLoaded(val url: String) : InvoiceDetailAction
+    data class LoadFailed(val error: Throwable) : InvoiceDetailAction
+    // User-initiated actions
     object CallCustomer : InvoiceDetailAction
     data class ShowDialog(val dialog: ActiveDialog?) : InvoiceDetailAction
     data class AddPayment(val amount: Double, val note: String?) : InvoiceDetailAction
@@ -55,37 +58,36 @@ class InvoiceDetailViewModel(
 ) : MviViewModel<InvoiceDetailState, InvoiceDetailAction, InvoiceDetailEvent>() {
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
     init {
-        val invoiceDetailsStream = repository.getInvoiceWithDetails(invoiceId)
-        invoiceDetailsStream
+        // FIX: Consolidated data loading into a single, more robust stream
+        repository.getInvoiceWithDetails(invoiceId)
             .onEach { (invoice, logs) ->
                 if (invoice != null) {
+                    // Once invoice is confirmed to exist, load its related data
                     sendAction(InvoiceDetailAction.DetailsLoaded(invoice, logs))
+                    loadCustomer(invoice.customerId)
+                    loadImageUrl(invoice.originalScanUrl)
                 } else if (!uiState.value.isLoading) {
-                    // Invoice was deleted, navigate back
+                    // This handles the case where the invoice is deleted while the user is viewing it
                     sendEvent(InvoiceDetailEvent.NavigateBack)
                 } else {
+                    // This handles the case where the invoice ID was invalid from the start
                     setState { copy(isLoading = false) }
                 }
             }
             .launchIn(viewModelScope)
-        invoiceDetailsStream.filterNotNull().onEach { (invoice, _) ->
-            invoice?.customerId?.let { customerId ->
-                repository.getCustomerById(customerId).filterNotNull().onEach { customer ->
-                    sendAction(InvoiceDetailAction.CustomerLoaded(customer))
-                }.launchIn(viewModelScope)
-            }
-        }.launchIn(viewModelScope)
-        loadImage()
     }
-    private fun loadImage() = viewModelScope.launch {
-        // Load image URL once
+    private fun loadCustomer(customerId: String) = viewModelScope.launch {
+        repository.getCustomerById(customerId)
+            .filterNotNull()
+            .first() // Take the first non-null emission
+            .let { sendAction(InvoiceDetailAction.CustomerLoaded(it)) }
+    }
+    private fun loadImageUrl(path: String) = viewModelScope.launch {
+        // Prevent re-fetching if URL is already loaded
         if (uiState.value.imageUrl != null) return@launch
-        val invoice = repository.getInvoiceWithDetails(invoiceId).first().first
-        if (invoice != null) {
-            repository.getPublicUrl(invoice.originalScanUrl)
-                .onSuccess { url -> sendAction(InvoiceDetailAction.ImageUrlLoaded(url)) }
-                .onFailure { sendEvent(InvoiceDetailEvent.ShowMessage("Could not load invoice image.")) }
-        }
+        repository.getPublicUrl(path)
+            .onSuccess { sendAction(InvoiceDetailAction.ImageUrlLoaded(it)) }
+            .onFailure { sendAction(InvoiceDetailAction.LoadFailed(it)) }
     }
     override fun createInitialState(): InvoiceDetailState = InvoiceDetailState()
     override fun handleAction(action: InvoiceDetailAction) {
@@ -93,6 +95,7 @@ class InvoiceDetailViewModel(
             is InvoiceDetailAction.DetailsLoaded -> setState { copy(invoice = action.invoice, logs = action.logs, isLoading = false) }
             is InvoiceDetailAction.CustomerLoaded -> setState { copy(customer = action.customer) }
             is InvoiceDetailAction.ImageUrlLoaded -> setState { copy(imageUrl = action.url) }
+            is InvoiceDetailAction.LoadFailed -> sendEvent(InvoiceDetailEvent.ShowMessage(action.error.message ?: "Failed to load image"))
             is InvoiceDetailAction.AddPayment -> addPayment(action.amount, action.note)
             is InvoiceDetailAction.AddNote -> addNote(action.note)
             is InvoiceDetailAction.PostponeDueDate -> postponeDueDate(action.newDueDate, action.reason)

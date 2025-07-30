@@ -123,9 +123,11 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
             arguments = listOf(navArgument("invoiceId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(tween(SLIDE_ANIM_DURATION)) { it } },
             popExitTransition = { slideOutHorizontally(tween(SLIDE_ANIM_DURATION)) { it } }
-        ) {
+        ) { backStackEntry ->
+            // FIX: Replaced !! with requireNotNull for safer argument access
+            val invoiceId = requireNotNull(backStackEntry.arguments?.getString("invoiceId"))
             InvoiceDetailScreen(
-                invoiceId = it.arguments?.getString("invoiceId")!!,
+                invoiceId = invoiceId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToCustomer = { id -> navController.navigate(Screen.CustomerDetail.createRoute(id)) }
             )
@@ -135,9 +137,11 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
             arguments = listOf(navArgument("customerId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(tween(SLIDE_ANIM_DURATION)) { it } },
             popExitTransition = { slideOutHorizontally(tween(SLIDE_ANIM_DURATION)) { it } }
-        ) {
+        ) { backStackEntry ->
+            // FIX: Replaced !! with requireNotNull for safer argument access
+            val customerId = requireNotNull(backStackEntry.arguments?.getString("customerId"))
             CustomerDetailScreen(
-                customerId = it.arguments?.getString("customerId")!!,
+                customerId = customerId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToInvoice = { id -> navController.navigate(Screen.InvoiceDetail.createRoute(id)) }
             )

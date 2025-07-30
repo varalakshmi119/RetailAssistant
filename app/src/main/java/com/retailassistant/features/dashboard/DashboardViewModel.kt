@@ -84,6 +84,7 @@ class DashboardViewModel(
             if (!isInitial) setState { copy(isRefreshing = true) }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(DashboardEvent.ShowError(error.message ?: "Sync failed"))
+                // FIX: Reset both loading states on failure to prevent infinite loading
                 setState { copy(isRefreshing = false, isLoading = false) }
             }
         }

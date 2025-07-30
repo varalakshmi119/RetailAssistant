@@ -31,29 +31,30 @@ class NotificationWorker(
         private const val CHANNEL_ID = "overdue_invoices_channel"
         private const val NOTIFICATION_ID = 101
         private const val MAX_RETRY_COUNT = 3
-        private const val RETRY_COUNT_KEY = "retry_count"
     }
     override suspend fun doWork(): Result {
         val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.success() // No user, no work.
-        val retryCount = inputData.getInt(RETRY_COUNT_KEY, 0)
+        // Prevent infinite retries if the worker keeps failing.
+        if (runAttemptCount >= MAX_RETRY_COUNT) {
+            return Result.failure()
+        }
         return try {
-            // First, sync data to ensure we have the latest information
-            repository.syncAllUserData(userId).getOrThrow()
-            // Then, query the local database
+            // FIX: Attempt to sync, but don't fail the worker if sync fails.
+            // This allows notifications to be sent based on cached data if offline.
+            repository.syncAllUserData(userId).onFailure {
+                // Log the error for diagnostics but proceed.
+                println("NotificationWorker: Sync failed, proceeding with cached data. Error: ${it.message}")
+            }
+            // Always query the local database after attempting a sync.
             val overdueInvoices = repository.getInvoicesStream(userId).first().filter { it.isOverdue }
             if (overdueInvoices.isNotEmpty()) {
                 showOverdueNotification(overdueInvoices.size)
             }
             Result.success()
         } catch (e: Exception) {
-            // Implement retry limit to prevent infinite retries
-            if (retryCount < MAX_RETRY_COUNT) {
-                println("NotificationWorker failed (attempt ${retryCount + 1}/$MAX_RETRY_COUNT): ${e.message}")
-                Result.retry()
-            } else {
-                println("NotificationWorker failed after $MAX_RETRY_COUNT attempts, giving up: ${e.message}")
-                Result.failure()
-            }
+            println("NotificationWorker failed on attempt $runAttemptCount: ${e.message}")
+            // If any other exception occurs, retry the worker.
+            Result.retry()
         }
     }
     private fun showOverdueNotification(count: Int) {
