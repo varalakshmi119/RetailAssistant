@@ -1,5 +1,4 @@
 package com.retailassistant.features.dashboard
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -73,7 +72,6 @@ import com.retailassistant.ui.theme.AppGradients
 import com.retailassistant.ui.theme.GradientColors
 import org.koin.androidx.compose.koinViewModel
 import java.time.format.DateTimeFormatter
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -84,7 +82,6 @@ fun DashboardScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    
     // Observe network connectivity
     val connectivityObserver = remember { ConnectivityObserver(context) }
     val isOnline by connectivityObserver.observe().collectAsStateWithLifecycle(initialValue = true)
@@ -96,7 +93,6 @@ fun DashboardScreen(
             } else true
         )
     }
-
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
@@ -104,7 +100,6 @@ fun DashboardScreen(
             showPermissionCard = !isGranted // Keep showing if permission denied
         }
     )
-
     LaunchedEffect(key1 = true) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             hasNotificationPermission = ContextCompat.checkSelfPermission(
@@ -112,7 +107,6 @@ fun DashboardScreen(
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -120,7 +114,6 @@ fun DashboardScreen(
             }
         }
     }
-
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -140,7 +133,6 @@ fun DashboardScreen(
             }
         )
     }
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -172,14 +164,12 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item { DashboardHeader(userName = state.userName) }
-
                 // Show offline indicator when not connected
                 if (!isOnline) {
                     item {
                         OfflineIndicatorCard()
                     }
                 }
-
                 if (showPermissionCard && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     item {
                         PermissionRequestCard(
@@ -188,7 +178,6 @@ fun DashboardScreen(
                         )
                     }
                 }
-
                 item {
                     DashboardStats(
                         totalUnpaid = state.totalUnpaid,
@@ -203,7 +192,6 @@ fun DashboardScreen(
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-
                 if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
                     items(count = 3) {
                         Box(
@@ -237,7 +225,6 @@ fun DashboardScreen(
         }
     }
 }
-
 @Composable
 private fun PermissionRequestCard(
     onAllowClick: () -> Unit,
@@ -290,7 +277,6 @@ private fun PermissionRequestCard(
         }
     }
 }
-
 @Composable
 private fun DashboardHeader(userName: String?) {
     Column {
@@ -314,7 +300,6 @@ private fun DashboardHeader(userName: String?) {
         }
     }
 }
-
 @Composable
 private fun DashboardStats(
     totalUnpaid: Double,
@@ -338,7 +323,6 @@ private fun DashboardStats(
         )
     }
 }
-
 @Composable
 private fun StatCard(
     label: String,
@@ -371,7 +355,6 @@ private fun StatCard(
         }
     }
 }
-
 @Composable
 private fun OfflineIndicatorCard() {
     ElevatedCard(

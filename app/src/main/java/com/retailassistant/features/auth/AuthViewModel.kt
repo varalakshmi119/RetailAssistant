@@ -1,5 +1,4 @@
 package com.retailassistant.features.auth
-
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.ErrorHandler
 import com.retailassistant.core.MviViewModel
@@ -11,33 +10,27 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
-
 data class AuthState(
     val email: String = "",
     val password: String = "",
     val isLoading: Boolean = false,
     val isSignUpMode: Boolean = false
 ) : UiState
-
 sealed interface AuthAction : UiAction {
     data class UpdateEmail(val email: String) : AuthAction
     data class UpdatePassword(val password: String) : AuthAction
     object ToggleMode : AuthAction
     object Submit : AuthAction
 }
-
 sealed interface AuthEvent : UiEvent {
     object NavigateToDashboard : AuthEvent
     data class ShowMessage(val message: String) : AuthEvent
 }
-
 class AuthViewModel(
     private val supabase: SupabaseClient,
     private val repository: RetailRepository
 ) : MviViewModel<AuthState, AuthAction, AuthEvent>() {
-
     override fun createInitialState(): AuthState = AuthState()
-
     override fun handleAction(action: AuthAction) {
         when (action) {
             is AuthAction.UpdateEmail -> setState { copy(email = action.email) }
@@ -46,7 +39,6 @@ class AuthViewModel(
             is AuthAction.Submit -> if (uiState.value.isSignUpMode) signUp() else signIn()
         }
     }
-
     private fun signIn() {
         viewModelScope.launch {
             setState { copy(isLoading = true) }
@@ -57,7 +49,6 @@ class AuthViewModel(
                 }
                 val userId = supabase.auth.currentUserOrNull()?.id
                     ?: throw IllegalStateException("Sign-in successful but user not found.")
-
                 // Perform initial sync on login - handle gracefully if it fails
                 repository.syncAllUserData(userId).onFailure { syncError ->
                     // Log sync failure but still allow navigation since user is authenticated
@@ -74,7 +65,6 @@ class AuthViewModel(
             }
         }
     }
-
     private fun signUp() {
         viewModelScope.launch {
             setState { copy(isLoading = true) }

@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.specific
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +34,6 @@ import com.retailassistant.data.db.InteractionLog
 import com.retailassistant.data.db.InteractionType
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.ui.components.common.ElevatedCard
-
 @Composable
 fun InvoiceCard(
     invoice: Invoice,
@@ -50,7 +48,6 @@ fun InvoiceCard(
         isPaid -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.primary
     }
-
     ElevatedCard(modifier = modifier, onClick = onClick) {
         Row {
             // Status Indicator
@@ -62,7 +59,6 @@ fun InvoiceCard(
                     .clip(MaterialTheme.shapes.small)
                     .background(statusColor)
             )
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -87,7 +83,6 @@ fun InvoiceCard(
                         InfoChip(icon = Icons.Default.Schedule, text = "Due: $friendlyDueDate")
                     }
                 }
-
                 // Right side: Amount and Arrow
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -117,7 +112,6 @@ fun InvoiceCard(
         }
     }
 }
-
 @Composable
 fun InfoChip(
     icon: ImageVector,
@@ -139,7 +133,6 @@ fun InfoChip(
         )
     }
 }
-
 @Composable
 fun InteractionLogItem(log: InteractionLog, modifier: Modifier = Modifier) {
     Row(modifier = modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.Top) {
@@ -160,7 +153,6 @@ fun InteractionLogItem(log: InteractionLog, modifier: Modifier = Modifier) {
                 null
             )
         }
-
         Icon(
             imageVector = icon,
             contentDescription = log.type.name,

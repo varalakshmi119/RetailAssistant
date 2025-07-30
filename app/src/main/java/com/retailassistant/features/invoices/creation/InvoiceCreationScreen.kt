@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.creation
-
 import android.app.Activity
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -65,7 +64,6 @@ import com.retailassistant.ui.components.common.EnhancedDatePickerField
 import com.retailassistant.ui.components.common.FormTextField
 import com.retailassistant.ui.components.common.GradientButton
 import org.koin.androidx.compose.koinViewModel
-
 @Composable
 fun InvoiceCreationScreen(
     onNavigateBack: () -> Unit,
@@ -74,7 +72,6 @@ fun InvoiceCreationScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-
     val scanner = remember {
         val options = GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(true)
@@ -84,7 +81,6 @@ fun InvoiceCreationScreen(
             .build()
         GmsDocumentScanning.getClient(options)
     }
-
     val scannerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -94,7 +90,6 @@ fun InvoiceCreationScreen(
                 ?.let { viewModel.sendAction(InvoiceCreationAction.ImageSelected(it)) }
         }
     }
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -103,7 +98,6 @@ fun InvoiceCreationScreen(
             }
         }
     }
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -141,7 +135,6 @@ fun InvoiceCreationScreen(
         }
     }
 }
-
 @Composable
 private fun ImageSelectionSection(
     imageUri: Uri?,
@@ -183,13 +176,11 @@ private fun ImageSelectionSection(
                 }
             }
         }
-
         if (isAiExtracting) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
-
         if (imageUri != null && !isAiExtracting) {
             IconButton(
                 onClick = onClearClick,
@@ -204,7 +195,6 @@ private fun ImageSelectionSection(
         }
     }
 }
-
 @Composable
 private fun InvoiceForm(state: InvoiceCreationState, onAction: (InvoiceCreationAction) -> Unit) {
     Column(
@@ -242,7 +232,6 @@ private fun InvoiceForm(state: InvoiceCreationState, onAction: (InvoiceCreationA
                 modifier = Modifier.weight(1f)
             )
         }
-
         SectionHeader("Contact Info (Optional)")
         FormTextField(
             value = state.phoneNumber,
@@ -261,7 +250,6 @@ private fun InvoiceForm(state: InvoiceCreationState, onAction: (InvoiceCreationA
         Spacer(Modifier.height(80.dp)) // Spacer for bottom button
     }
 }
-
 @Composable
 private fun SectionHeader(text: String) {
     Text(

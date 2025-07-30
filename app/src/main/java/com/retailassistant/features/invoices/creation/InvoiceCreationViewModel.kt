@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.creation
-
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
@@ -22,7 +21,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-
 data class InvoiceCreationState(
     val customerName: String = "",
     val selectedCustomerId: String? = null,
@@ -44,7 +42,6 @@ data class InvoiceCreationState(
                 !isAiExtracting &&
                 !isSaving
 }
-
 sealed interface InvoiceCreationAction : UiAction {
     data class ImageSelected(val uri: Uri) : InvoiceCreationAction
     object SaveInvoice : InvoiceCreationAction
@@ -58,12 +55,10 @@ sealed interface InvoiceCreationAction : UiAction {
     object ClearImage : InvoiceCreationAction
     object ShowScannerError : InvoiceCreationAction
 }
-
 sealed interface InvoiceCreationEvent : UiEvent {
     object NavigateBack : InvoiceCreationEvent
     data class ShowMessage(val message: String) : InvoiceCreationEvent
 }
-
 class InvoiceCreationViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val repository: RetailRepository,
@@ -71,11 +66,9 @@ class InvoiceCreationViewModel(
     private val imageHandler: ImageHandler,
     supabase: SupabaseClient
 ) : MviViewModel<InvoiceCreationState, InvoiceCreationAction, InvoiceCreationEvent>() {
-
     private var imageBytes: ByteArray? = null
     private var aiExtractionJob: Job? = null
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         restoreState()
         if (userId != null) {
@@ -84,9 +77,7 @@ class InvoiceCreationViewModel(
                 .launchIn(viewModelScope)
         }
     }
-
     override fun createInitialState() = InvoiceCreationState()
-
     override fun handleAction(action: InvoiceCreationAction) {
         when (action) {
             is InvoiceCreationAction.ImageSelected -> processImage(action.uri)
@@ -105,7 +96,6 @@ class InvoiceCreationViewModel(
             is InvoiceCreationAction.ShowScannerError -> sendEvent(InvoiceCreationEvent.ShowMessage("Document scanner is unavailable on this device."))
         }
     }
-
     private fun processImage(uri: Uri) {
         aiExtractionJob?.cancel()
         updateState(Keys.IMAGE_URI, uri.toString()) { copy(scannedImageUri = uri, isAiExtracting = true) }
@@ -121,7 +111,6 @@ class InvoiceCreationViewModel(
                 }
         }
     }
-
     private suspend fun extractDataFromImage(bytes: ByteArray) {
         geminiClient.extractInvoiceData(bytes)
             .onSuccess { data ->
@@ -142,7 +131,6 @@ class InvoiceCreationViewModel(
             }
         setState { copy(isAiExtracting = false) }
     }
-
     private fun saveInvoice() {
         if (userId == null) {
             sendEvent(InvoiceCreationEvent.ShowMessage("User not authenticated. Please sign in again."))
@@ -187,7 +175,6 @@ class InvoiceCreationViewModel(
             }
         }
     }
-
     private fun selectCustomer(customer: Customer) {
         savedStateHandle[Keys.CUSTOMER_NAME] = customer.name
         savedStateHandle[Keys.CUSTOMER_ID] = customer.id
@@ -202,17 +189,14 @@ class InvoiceCreationViewModel(
             )
         }
     }
-
     private fun clearImageData() {
         aiExtractionJob?.cancel()
         imageBytes = null
         updateState(Keys.IMAGE_URI, null) { copy(scannedImageUri = null, isAiExtracting = false) }
     }
-
     private fun parseDate(dateStr: String?): LocalDate? {
         return dateStr?.let { try { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) } catch (e: DateTimeParseException) { null } }
     }
-
     // --- State Persistence ---
     private object Keys {
         const val CUSTOMER_NAME = "customerName"
@@ -224,12 +208,10 @@ class InvoiceCreationViewModel(
         const val AMOUNT = "amount"
         const val IMAGE_URI = "scannedImageUri"
     }
-
     private fun <T> updateState(key: String, value: T?, reducer: InvoiceCreationState.(T?) -> InvoiceCreationState) {
         savedStateHandle[key] = value
         setState { reducer(value) }
     }
-
     private fun restoreState() {
         setState {
             copy(

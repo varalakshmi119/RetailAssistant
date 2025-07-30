@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -16,7 +15,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
-
 @Composable
 fun ElevatedCard(
     modifier: Modifier = Modifier,
@@ -33,7 +31,6 @@ fun ElevatedCard(
         Column(modifier = Modifier.padding(16.dp), content = content)
     }
 }
-
 @Composable
 fun GradientBox(
     modifier: Modifier = Modifier,

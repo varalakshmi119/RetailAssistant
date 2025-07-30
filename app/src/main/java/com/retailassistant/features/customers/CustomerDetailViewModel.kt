@@ -1,5 +1,4 @@
 package com.retailassistant.features.customers
-
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -14,11 +13,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-
 sealed class CustomerDetailDialog {
     data object ConfirmDeleteCustomer : CustomerDetailDialog()
 }
-
 data class CustomerDetailState(
     val customer: Customer? = null,
     val invoices: List<Invoice> = emptyList(),
@@ -28,31 +25,25 @@ data class CustomerDetailState(
     val activeDialog: CustomerDetailDialog? = null,
     val isProcessingAction: Boolean = false
 ) : UiState
-
 sealed interface CustomerDetailAction : UiAction {
     data class DataLoaded(val customer: Customer?, val invoices: List<Invoice>) : CustomerDetailAction
     data class ShowDialog(val dialog: CustomerDetailDialog?) : CustomerDetailAction
     object ConfirmDeleteCustomer : CustomerDetailAction
 }
-
 sealed interface CustomerDetailEvent : UiEvent {
     object NavigateBack : CustomerDetailEvent
     data class ShowMessage(val message: String) : CustomerDetailEvent
 }
-
 class CustomerDetailViewModel(
     private val customerId: String,
     private val repository: RetailRepository,
     supabase: SupabaseClient
 ) : MviViewModel<CustomerDetailState, CustomerDetailAction, CustomerDetailEvent>() {
-
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         if (userId != null) {
             val customerStream = repository.getCustomerById(customerId)
             val invoicesStream = repository.getCustomerInvoicesStream(userId, customerId)
-
             customerStream.combine(invoicesStream) { customer, invoices ->
                 CustomerDetailAction.DataLoaded(customer, invoices)
             }.onEach { sendAction(it) }
@@ -62,9 +53,7 @@ class CustomerDetailViewModel(
             sendEvent(CustomerDetailEvent.ShowMessage("User not authenticated."))
         }
     }
-
     override fun createInitialState(): CustomerDetailState = CustomerDetailState()
-
     override fun handleAction(action: CustomerDetailAction) {
         when (action) {
             is CustomerDetailAction.DataLoaded -> {
@@ -84,7 +73,6 @@ class CustomerDetailViewModel(
             is CustomerDetailAction.ConfirmDeleteCustomer -> deleteCustomer()
         }
     }
-
     private fun deleteCustomer() {
         viewModelScope.launch {
             setState { copy(isProcessingAction = true) }

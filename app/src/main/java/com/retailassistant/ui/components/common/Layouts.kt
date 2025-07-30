@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +27,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-
 @Composable
 fun EmptyState(
     title: String,
@@ -63,7 +61,6 @@ fun EmptyState(
         )
     }
 }
-
 @Composable
 fun FullScreenLoading(modifier: Modifier = Modifier) {
     Box(
@@ -73,7 +70,6 @@ fun FullScreenLoading(modifier: Modifier = Modifier) {
         CircularProgressIndicator()
     }
 }
-
 @Composable
 fun FullScreenError(
     message: String,
@@ -111,7 +107,6 @@ fun FullScreenError(
         }
     }
 }
-
 @Composable
 fun AnimatedCounter(
     targetValue: Double,

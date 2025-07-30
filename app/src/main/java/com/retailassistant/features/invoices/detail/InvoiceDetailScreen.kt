@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.detail
-
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.animateContentSize
@@ -77,7 +76,6 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
 @Composable
 fun InvoiceDetailScreen(
     invoiceId: String,
@@ -88,7 +86,6 @@ fun InvoiceDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -98,9 +95,7 @@ fun InvoiceDetailScreen(
             }
         }
     }
-
     HandleDialogs(state = state, onAction = viewModel::sendAction)
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -113,7 +108,7 @@ fun InvoiceDetailScreen(
                 actions = {
                     if (state.invoice != null) {
                         IconButton(
-                            onClick = { 
+                            onClick = {
                                 SharingUtils.shareInvoiceViaWhatsApp(
                                     context = context,
                                     invoice = state.invoice!!,
@@ -178,7 +173,6 @@ fun InvoiceDetailScreen(
         }
     }
 }
-
 @Composable
 private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAction) -> Unit) {
     when (val dialog = state.activeDialog) {
@@ -208,7 +202,6 @@ private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAct
         null -> {}
     }
 }
-
 @Composable
 private fun CustomerHeader(customerName: String, customerPhone: String?, onCall: () -> Unit, onNavigate: () -> Unit) {
     ElevatedCard(onClick = onNavigate) {
@@ -232,7 +225,6 @@ private fun CustomerHeader(customerName: String, customerPhone: String?, onCall:
         }
     }
 }
-
 @Composable
 private fun PaymentSummaryCard(invoice: Invoice) {
     val progress by animateFloatAsState(
@@ -265,7 +257,6 @@ private fun PaymentSummaryCard(invoice: Invoice) {
         }
     }
 }
-
 @Composable
 private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit, onAddNote: () -> Unit, onPostpone: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -280,7 +271,6 @@ private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit
         }
     }
 }
-
 @Composable
 private fun InvoiceImageCard(imageUrl: String?) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -306,7 +296,6 @@ private fun InvoiceImageCard(imageUrl: String?) {
         )
     }
 }
-
 private fun makePhoneCall(context: Context, phoneNumber: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri()))

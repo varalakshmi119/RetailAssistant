@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.list
-
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -18,7 +17,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-
 data class InvoiceListState(
     val allInvoices: List<InvoiceWithCustomer> = emptyList(),
     val searchQuery: String = "",
@@ -26,7 +24,6 @@ data class InvoiceListState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false
 ) : UiState {
-
     private val filteredBySearchAndFilter: List<InvoiceWithCustomer> by lazy {
         val byFilter = when (selectedFilter) {
             InvoiceFilter.ALL -> allInvoices
@@ -44,7 +41,6 @@ data class InvoiceListState(
             }
         }
     }
-
     val groupedInvoices: Map<String, List<InvoiceWithCustomer>> by lazy {
         filteredBySearchAndFilter
             .groupBy {
@@ -64,25 +60,20 @@ data class InvoiceListState(
             })
     }
 }
-
 sealed interface InvoiceListAction : UiAction {
     object RefreshData : InvoiceListAction
     data class Search(val query: String) : InvoiceListAction
     data class Filter(val filter: InvoiceFilter) : InvoiceListAction
     data class DataLoaded(val invoices: List<Invoice>, val customers: List<Customer>) : InvoiceListAction
 }
-
 sealed interface InvoiceListEvent : UiEvent {
     data class ShowError(val message: String) : InvoiceListEvent
 }
-
 class InvoiceListViewModel(
     private val repository: RetailRepository,
     supabase: SupabaseClient
 ) : MviViewModel<InvoiceListState, InvoiceListAction, InvoiceListEvent>() {
-
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         if (userId != null) {
             repository.getInvoicesStream(userId)
@@ -95,15 +86,12 @@ class InvoiceListViewModel(
                 }
                 .onEach { sendAction(it) }
                 .launchIn(viewModelScope)
-
             refreshData(isInitial = true)
         } else {
             setState { copy(isLoading = false) }
         }
     }
-
     override fun createInitialState(): InvoiceListState = InvoiceListState()
-
     override fun handleAction(action: InvoiceListAction) {
         when (action) {
             is InvoiceListAction.RefreshData -> refreshData()
@@ -124,7 +112,6 @@ class InvoiceListViewModel(
             }
         }
     }
-
     private fun refreshData(isInitial: Boolean = false) {
         if (userId == null) return
         viewModelScope.launch {

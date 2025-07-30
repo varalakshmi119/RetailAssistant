@@ -6,17 +6,14 @@ import java.net.UnknownHostException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-
 /**
  * A centralized error handling utility to provide consistent, user-friendly messages
  * from various exceptions thrown throughout the application.
  */
 object ErrorHandler {
-
     // --- Supabase/Postgres specific error codes for robust matching ---
     private const val POSTGRES_UNIQUE_VIOLATION_CODE = "23505"
     private const val POSTGRES_FOREIGN_KEY_VIOLATION_CODE = "23503"
-
     fun getErrorMessage(throwable: Throwable, defaultMessage: String = "An unexpected error occurred"): String {
         return when (throwable) {
             is SocketTimeoutException -> "Request timed out. Please check your connection."
@@ -28,7 +25,6 @@ object ErrorHandler {
             else -> throwable.message?.takeIf { it.isNotBlank() } ?: defaultMessage
         }
     }
-
     private fun parseRestException(exception: RestException): String {
         // Parse JSON from exception.message for structured error details
         val errorJson: JsonObject? = try {
@@ -39,7 +35,6 @@ object ErrorHandler {
         val code = errorJson?.get("code")?.jsonPrimitive?.content
         val details = errorJson?.get("details")?.jsonPrimitive?.content
         val message = errorJson?.get("message")?.jsonPrimitive?.content ?: exception.message
-
         // Prioritize matching on 'code' as per Supabase docs best practices
         return when (code) {
             POSTGRES_UNIQUE_VIOLATION_CODE -> {
@@ -49,7 +44,6 @@ object ErrorHandler {
                 }
             }
             POSTGRES_FOREIGN_KEY_VIOLATION_CODE -> "Invalid reference. The related item may have been deleted."
-
             "email_not_confirmed" -> "Please confirm your email, then sign in."
             "invalid_credentials" -> "Invalid email or password."
             "user_already_exists", "email_exists", "phone_exists" -> "An account with this email or phone already exists. Please sign in."
@@ -60,7 +54,6 @@ object ErrorHandler {
             "otp_expired" -> "OTP code has expired. Please request a new one."
             "validation_failed" -> "Invalid input format. Please check your details."
             "identity_already_exists" -> "This identity is already linked to an account."
-
             else -> when (exception.statusCode) {
                 401 -> "Authentication failed. Please sign in again."
                 403 -> "You don't have permission to perform this action."
@@ -70,23 +63,19 @@ object ErrorHandler {
             }
         }
     }
-
     fun isNetworkError(throwable: Throwable): Boolean =
         throwable is SocketTimeoutException || throwable is UnknownHostException || throwable is HttpRequestException
-
     fun isAuthError(throwable: Throwable): Boolean {
         return when (throwable) {
             is RestException -> throwable.statusCode == 401 || throwable.statusCode == 403
             else -> false  // HttpRequestException has no status, so can't be auth error
         }
     }
-
     /**
      * Sanitizes error messages to prevent exposure of sensitive information
      */
     private fun sanitizeErrorMessage(message: String?): String? {
         if (message.isNullOrBlank()) return null
-        
         // Remove potential sensitive patterns
         val sensitivePatterns = listOf(
             Regex("password[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
@@ -96,12 +85,10 @@ object ErrorHandler {
             Regex("\\b\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}\\b"), // Credit card patterns
             Regex("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b") // Email patterns in error messages
         )
-        
         var sanitized = message ?: return null
         sensitivePatterns.forEach { pattern ->
             sanitized = pattern.replace(sanitized, "[REDACTED]")
         }
-        
         return sanitized.take(200) // Limit message length
     }
 }

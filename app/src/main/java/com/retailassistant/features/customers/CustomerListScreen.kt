@@ -1,5 +1,4 @@
 package com.retailassistant.features.customers
-
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +31,6 @@ import com.retailassistant.ui.components.common.SearchBar
 import com.retailassistant.ui.components.common.ShimmeringList
 import com.retailassistant.ui.components.specific.CustomerCard
 import org.koin.androidx.compose.koinViewModel
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerListScreen(
@@ -42,7 +40,6 @@ fun CustomerListScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -52,7 +49,6 @@ fun CustomerListScreen(
             }
         }
     }
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -75,7 +71,6 @@ fun CustomerListScreen(
                 placeholder = "Search by name or phone...",
                 modifier = Modifier.padding(16.dp)
             )
-
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.sendAction(CustomerListAction.RefreshData) },
@@ -115,7 +110,6 @@ fun CustomerListScreen(
         }
     }
 }
-
 private fun openDialer(context: Context, phone: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
@@ -123,7 +117,6 @@ private fun openDialer(context: Context, phone: String) {
         // Fails silently if no dialer is available.
     }
 }
-
 private suspend fun openEmail(context: Context, email: String, snackbar: SnackbarHostState) {
     val intent = Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())
     if (intent.resolveActivity(context.packageManager) != null) {

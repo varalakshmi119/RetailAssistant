@@ -1,5 +1,4 @@
 package com.retailassistant.data.db
-
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -16,16 +15,13 @@ import kotlinx.serialization.encoding.Encoder
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
-
 // Models are shared between Room and Supabase for serialization consistency.
 // Indices are added for production-grade performance on large datasets.
-
 object LocalDateSerializer : KSerializer<LocalDate> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
     override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeString(value.toString())
     override fun deserialize(decoder: Decoder): LocalDate = LocalDate.parse(decoder.decodeString())
 }
-
 object TimestamptzToLongSerializer : KSerializer<Long> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("timestamptz", PrimitiveKind.STRING)
     override fun deserialize(decoder: Decoder): Long {
@@ -35,10 +31,8 @@ object TimestamptzToLongSerializer : KSerializer<Long> {
         encoder.encodeString(Instant.ofEpochMilli(value).toString())
     }
 }
-
 enum class InvoiceStatus { UNPAID, PAID, OVERDUE, PARTIALLY_PAID }
 enum class InteractionType { NOTE, PAYMENT, DUE_DATE_CHANGED }
-
 @Serializable
 @Entity(tableName = "customers", indices = [Index(value = ["userId"])])
 data class Customer(
@@ -48,7 +42,6 @@ data class Customer(
     val email: String?,
     @SerialName("user_id") val userId: String
 )
-
 @Serializable
 @Entity(
     tableName = "invoices",
@@ -82,7 +75,6 @@ data class Invoice(
     val balanceDue: Double
         get() = (totalAmount - amountPaid).coerceAtLeast(0.0)
 }
-
 @Serializable
 @Entity(
     tableName = "interaction_logs",
@@ -107,7 +99,6 @@ data class InteractionLog(
     // IMPROVEMENT: Removed client-side default.
     @Serializable(with = TimestamptzToLongSerializer::class) @SerialName("created_at") val createdAt: Long
 )
-
 /**
  * Data Transfer Object for Gemini API responses.
  */
@@ -120,7 +111,6 @@ data class ExtractedInvoiceData(
     val email: String?,
     @SerialName("total_amount") val totalAmount: Double?
 )
-
 /**
  * Type converters for Room to handle LocalDate.
  */

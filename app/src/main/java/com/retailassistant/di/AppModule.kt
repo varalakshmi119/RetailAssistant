@@ -1,5 +1,4 @@
 package com.retailassistant.di
-
 import androidx.room.Room
 import androidx.work.WorkManager
 import com.retailassistant.core.ImageHandler
@@ -24,11 +23,8 @@ import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
-
 val appModule = module {
-
     // --- SINGLETONS (Data & Core Layers) ---
-
     // Networking
     single { createAppSupabaseClient() }
     single {
@@ -47,11 +43,9 @@ val appModule = module {
         }
     }
     single { GeminiClient(get()) }
-
     // Core
     single { ImageHandler(androidApplication()) }
     single { WorkManager.getInstance(androidApplication()) }
-
     // Database & Repository
     // The repository now takes the whole AppDatabase instance to allow for transactions.
     single<RetailRepository> { RetailRepositoryImpl(get(), get(), Dispatchers.IO) }
@@ -60,12 +54,10 @@ val appModule = module {
             .fallbackToDestructiveMigration(false) // Set to true if you want to allow destructive migrations
             .build()
     }
-
     // DAOs
     single { get<AppDatabase>().customerDao() }
     single { get<AppDatabase>().invoiceDao() }
     single { get<AppDatabase>().interactionLogDao() }
-
     // --- VIEWMODELS ---
     viewModel { AuthViewModel(get(), get()) }
     viewModel { DashboardViewModel(get(), get()) }

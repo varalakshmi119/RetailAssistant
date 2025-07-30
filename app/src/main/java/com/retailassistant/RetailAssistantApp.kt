@@ -1,5 +1,4 @@
 package com.retailassistant
-
 import android.app.Application
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -20,7 +19,6 @@ import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import java.util.concurrent.TimeUnit
-
 class RetailAssistantApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
@@ -31,30 +29,26 @@ class RetailAssistantApp : Application(), ImageLoaderFactory {
         }
         setupPeriodicWork()
     }
-
     private fun setupPeriodicWork() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+    val constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build()
 
-        val periodicWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
-            .setConstraints(constraints)
-            // CORRECTION: Fixed the method signature and unresolved reference.
-            // Using exponential backoff is better for periodic work.
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                WorkRequest.MIN_BACKOFF_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
-            .build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            NotificationWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP, // Or REPLACE if the worker logic needs updating
-            periodicWorkRequest
+    val periodicWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
+        .setConstraints(constraints)
+        .setBackoffCriteria(
+            BackoffPolicy.EXPONENTIAL,
+            10, // Minimum backoff delay in TimeUnit.MILLISECONDS (must be >= 10 seconds)
+            TimeUnit.SECONDS
         )
-    }
+        .build()
 
+    WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        NotificationWorker.WORK_NAME,
+        ExistingPeriodicWorkPolicy.KEEP, // Use REPLACE if you want to update the worker logic
+        periodicWorkRequest
+    )
+}
     /**
      * Provides a custom Coil ImageLoader to configure a robust disk cache and a custom keyer.
      * The SupabaseUrlKeyer is crucial for caching Supabase's signed image URLs effectively.

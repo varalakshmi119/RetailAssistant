@@ -1,5 +1,4 @@
 package com.retailassistant.features.dashboard
-
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -15,12 +14,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-
 data class InvoiceWithCustomer(
     val invoice: Invoice,
     val customer: Customer?
 )
-
 data class DashboardState(
     val invoicesWithCustomers: List<InvoiceWithCustomer> = emptyList(),
     val isLoading: Boolean = true,
@@ -29,28 +26,22 @@ data class DashboardState(
     val overdueCount: Int = 0,
     val userName: String? = null
 ) : UiState
-
 sealed interface DashboardAction : UiAction {
     object RefreshData : DashboardAction
     data class DataLoaded(val invoices: List<Invoice>, val customers: List<Customer>) : DashboardAction
     object SignOut : DashboardAction
 }
-
 sealed interface DashboardEvent : UiEvent {
     data class ShowError(val message: String) : DashboardEvent
 }
-
 class DashboardViewModel(
     private val repository: RetailRepository,
     private val supabase: SupabaseClient
 ) : MviViewModel<DashboardState, DashboardAction, DashboardEvent>() {
-
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         val user = supabase.auth.currentUserOrNull()
         setState { copy(userName = user?.email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }) }
-
         if (userId != null) {
             repository.getInvoicesStream(userId)
                 .combine(repository.getCustomersStream(userId)) { invoices, customers ->
@@ -59,15 +50,12 @@ class DashboardViewModel(
                 .catch { e -> sendEvent(DashboardEvent.ShowError(e.message ?: "Failed to load data")) }
                 .onEach { sendAction(it) }
                 .launchIn(viewModelScope)
-
             refreshData(isInitial = true)
         } else {
             setState { copy(isLoading = false) }
         }
     }
-
     override fun createInitialState(): DashboardState = DashboardState()
-
     override fun handleAction(action: DashboardAction) {
         when (action) {
             is DashboardAction.RefreshData -> refreshData()
@@ -75,13 +63,11 @@ class DashboardViewModel(
             is DashboardAction.SignOut -> signOut()
         }
     }
-
     private fun updateStateWithData(invoices: List<Invoice>, customers: List<Customer>) {
         val customerMap = customers.associateBy { it.id }
         val invoicesWithCustomers = invoices.map { invoice ->
             InvoiceWithCustomer(invoice, customerMap[invoice.customerId])
         }
-
         setState {
             copy(
                 invoicesWithCustomers = invoicesWithCustomers.take(10), // Show most recent 10
@@ -92,7 +78,6 @@ class DashboardViewModel(
             )
         }
     }
-
     private fun refreshData(isInitial: Boolean = false) {
         if (userId == null) return
         viewModelScope.launch {
@@ -103,7 +88,6 @@ class DashboardViewModel(
             }
         }
     }
-
     private fun signOut() {
         if (userId == null) return
         viewModelScope.launch {

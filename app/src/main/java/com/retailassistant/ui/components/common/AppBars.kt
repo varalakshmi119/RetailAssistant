@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -26,13 +25,11 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.retailassistant.ui.navigation.bottomNavItems
-
 @Composable
 fun AppBottomBar(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val isVisible = bottomNavItems.any { it.screen.route == currentDestination?.route }
-
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(animationSpec = tween(300)) { it } + fadeIn(tween(300)),
@@ -66,7 +63,6 @@ fun AppBottomBar(navController: NavHostController) {
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CenteredTopAppBar(

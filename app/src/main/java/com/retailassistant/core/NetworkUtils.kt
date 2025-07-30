@@ -1,8 +1,6 @@
 package com.retailassistant.core
-
 import kotlinx.coroutines.delay
 import kotlin.random.Random
-
 object NetworkUtils {
     /**
      * Retries a suspend function with exponential backoff and jitter.
@@ -25,7 +23,6 @@ object NetworkUtils {
                 if (!ErrorHandler.isNetworkError(e) || ErrorHandler.isAuthError(e)) {
                     throw e // Don't retry on non-network or auth errors
                 }
-
                 if (attempt < maxRetries - 1) {
                     // Add jitter to avoid thundering herd problem
                     val jitter = Random.nextLong(0, currentDelay / 4)

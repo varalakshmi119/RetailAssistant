@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -34,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.retailassistant.ui.theme.AppGradients
 import com.retailassistant.ui.theme.GradientColors
-
 @Composable
 fun GradientButton(
     text: String,
@@ -51,7 +49,6 @@ fun GradientButton(
     } else {
         Brush.horizontalGradient(colors = listOf(Color.Gray.copy(alpha = 0.5f), Color.DarkGray.copy(alpha = 0.5f)))
     }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -85,7 +82,6 @@ fun GradientButton(
         }
     }
 }
-
 @Composable
 fun ActionButton(
     text: String,

@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -22,7 +21,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
-
 @Composable
 fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modifier = composed {
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -35,13 +33,11 @@ fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modi
         ),
         label = "shimmer-translate"
     )
-
     val shimmerColors = listOf(
         MaterialTheme.colorScheme.surfaceContainer,
         MaterialTheme.colorScheme.surfaceVariant,
         MaterialTheme.colorScheme.surfaceContainer,
     )
-
     background(
         brush = Brush.linearGradient(
             colors = shimmerColors,
@@ -51,7 +47,6 @@ fun Modifier.shimmerBackground(shape: Shape = MaterialTheme.shapes.medium): Modi
         shape = shape
     )
 }
-
 @Composable
 fun ShimmeringList(modifier: Modifier = Modifier, itemCount: Int = 5) {
     LazyColumn(

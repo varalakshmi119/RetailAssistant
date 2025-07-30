@@ -1,5 +1,4 @@
 package com.retailassistant.features.auth
-
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +37,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.retailassistant.ui.components.common.FormTextField
 import com.retailassistant.ui.components.common.GradientButton
 import org.koin.androidx.compose.koinViewModel
-
 @Composable
 fun AuthScreen(
     onLoginSuccess: () -> Unit,
@@ -46,7 +44,6 @@ fun AuthScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -63,7 +60,6 @@ fun AuthScreen(
             }
         }
     }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
@@ -79,7 +75,6 @@ fun AuthScreen(
         ) {
             // Add fixed spacer to push content towards center
             Spacer(modifier = Modifier.height(80.dp))
-
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
                 contentDescription = "App Logo",
@@ -102,7 +97,6 @@ fun AuthScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(modifier = Modifier.height(48.dp))
-
             FormTextField(
                 value = state.email,
                 onValueChange = { viewModel.sendAction(AuthAction.UpdateEmail(it)) },
@@ -123,7 +117,6 @@ fun AuthScreen(
                 leadingIcon = { Icon(Icons.Default.Lock, "Password") }
             )
             Spacer(modifier = Modifier.height(32.dp))
-
             GradientButton(
                 text = if (state.isSignUpMode) "Sign Up" else "Sign In",
                 onClick = { viewModel.sendAction(AuthAction.Submit) },

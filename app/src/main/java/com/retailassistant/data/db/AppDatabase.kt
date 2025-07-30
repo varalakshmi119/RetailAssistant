@@ -1,9 +1,7 @@
 package com.retailassistant.data.db
-
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-
 /**
  * The Room database definition. It serves as the single source of truth for all
  * local data in the application, enabling a robust offline-first experience.

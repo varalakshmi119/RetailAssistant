@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.specific
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,9 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-
 enum class InvoiceFilter { ALL, UNPAID, OVERDUE, PAID }
-
 @Composable
 fun InvoiceFilterChips(
     selectedFilter: InvoiceFilter,

@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
@@ -65,7 +64,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
 @Composable
 fun FormTextField(
     value: String,
@@ -115,7 +113,6 @@ fun FormTextField(
         )
     )
 }
-
 @Composable
 fun SearchBar(
     value: String,
@@ -129,7 +126,6 @@ fun SearchBar(
         targetValue = if (isFocused) 4.dp else 1.dp,
         label = "search_elevation"
     )
-
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -171,7 +167,6 @@ fun SearchBar(
         )
     )
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoCompleteCustomerField(
@@ -186,7 +181,6 @@ fun AutoCompleteCustomerField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var textFieldSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
-
     val filteredSuggestions by remember(value, suggestions) {
         derivedStateOf {
             if (value.isBlank()) {
@@ -198,7 +192,6 @@ fun AutoCompleteCustomerField(
             }
         }
     }
-
     Box(modifier = modifier.animateContentSize()) {
         FormTextField(
             value = value,
@@ -215,7 +208,6 @@ fun AutoCompleteCustomerField(
             singleLine = true,
             placeholder = "Search or type to create new"
         )
-
         if (expanded && filteredSuggestions.isNotEmpty()) {
             DropdownMenu(
                 expanded = expanded,
@@ -252,7 +244,6 @@ fun AutoCompleteCustomerField(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedDatePickerField(
@@ -267,7 +258,6 @@ fun EnhancedDatePickerField(
     val formattedDate = remember(value, dateFormat) {
         value.format(DateTimeFormatter.ofPattern(dateFormat, Locale.getDefault()))
     }
-
     Box(modifier = modifier) {
         FormTextField(
             value = formattedDate,
@@ -287,7 +277,6 @@ fun EnhancedDatePickerField(
             enabled = false // Disable direct text input
         )
     }
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = value.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()

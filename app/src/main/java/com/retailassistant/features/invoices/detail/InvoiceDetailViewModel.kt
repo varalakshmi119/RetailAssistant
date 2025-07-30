@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.detail
-
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -17,14 +16,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-
 sealed class ActiveDialog {
     data object AddPayment : ActiveDialog()
     data object AddNote : ActiveDialog()
     data object Postpone : ActiveDialog()
     data object ConfirmDeleteInvoice : ActiveDialog()
 }
-
 data class InvoiceDetailState(
     val invoice: Invoice? = null,
     val customer: Customer? = null,
@@ -34,7 +31,6 @@ data class InvoiceDetailState(
     val isProcessingAction: Boolean = false, // For dialog actions
     val activeDialog: ActiveDialog? = null,
 ) : UiState
-
 sealed interface InvoiceDetailAction : UiAction {
     data class DetailsLoaded(val invoice: Invoice, val logs: List<InteractionLog>) : InvoiceDetailAction
     data class CustomerLoaded(val customer: Customer) : InvoiceDetailAction
@@ -47,24 +43,19 @@ sealed interface InvoiceDetailAction : UiAction {
     object DeleteInvoice : InvoiceDetailAction
     data class ShowMessage(val message: String) : InvoiceDetailAction
 }
-
 sealed interface InvoiceDetailEvent : UiEvent {
     data class ShowMessage(val message: String) : InvoiceDetailEvent
     data class MakePhoneCall(val phoneNumber: String) : InvoiceDetailEvent
     object NavigateBack : InvoiceDetailEvent
 }
-
 class InvoiceDetailViewModel(
     private val invoiceId: String,
     private val repository: RetailRepository,
     private val supabase: SupabaseClient
 ) : MviViewModel<InvoiceDetailState, InvoiceDetailAction, InvoiceDetailEvent>() {
-
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         val invoiceDetailsStream = repository.getInvoiceWithDetails(invoiceId)
-
         invoiceDetailsStream
             .onEach { (invoice, logs) ->
                 if (invoice != null) {
@@ -77,7 +68,6 @@ class InvoiceDetailViewModel(
                 }
             }
             .launchIn(viewModelScope)
-
         invoiceDetailsStream.filterNotNull().onEach { (invoice, _) ->
             invoice?.customerId?.let { customerId ->
                 repository.getCustomerById(customerId).filterNotNull().onEach { customer ->
@@ -85,10 +75,8 @@ class InvoiceDetailViewModel(
                 }.launchIn(viewModelScope)
             }
         }.launchIn(viewModelScope)
-
         loadImage()
     }
-
     private fun loadImage() = viewModelScope.launch {
         // Load image URL once
         if (uiState.value.imageUrl != null) return@launch
@@ -99,9 +87,7 @@ class InvoiceDetailViewModel(
                 .onFailure { sendEvent(InvoiceDetailEvent.ShowMessage("Could not load invoice image.")) }
         }
     }
-
     override fun createInitialState(): InvoiceDetailState = InvoiceDetailState()
-
     override fun handleAction(action: InvoiceDetailAction) {
         when (action) {
             is InvoiceDetailAction.DetailsLoaded -> setState { copy(invoice = action.invoice, logs = action.logs, isLoading = false) }
@@ -116,7 +102,6 @@ class InvoiceDetailViewModel(
             is InvoiceDetailAction.ShowMessage -> sendEvent(InvoiceDetailEvent.ShowMessage(action.message))
         }
     }
-
     private fun performAction(
         repoCall: suspend () -> Result<Unit>,
         successMessage: String? = "Action completed successfully.",
@@ -134,7 +119,6 @@ class InvoiceDetailViewModel(
             setState { copy(isProcessingAction = false, activeDialog = null) }
         }
     }
-
     private fun addPayment(amount: Double, note: String?) {
         if (userId == null) return
         if (amount <= 0) {
@@ -143,7 +127,6 @@ class InvoiceDetailViewModel(
         }
         performAction(repoCall = { repository.addPayment(userId, invoiceId, amount, note) })
     }
-
     private fun addNote(note: String) {
         if (userId == null) return
         if (note.isBlank()) {
@@ -152,12 +135,10 @@ class InvoiceDetailViewModel(
         }
         performAction(repoCall = { repository.addNote(userId, invoiceId, note) })
     }
-
     private fun postponeDueDate(newDueDate: LocalDate, reason: String?) {
         if (userId == null) return
         performAction(repoCall = { repository.postponeDueDate(userId, invoiceId, newDueDate, reason) })
     }
-
     private fun deleteInvoice() {
         performAction(
             repoCall = { repository.deleteInvoice(invoiceId) },
@@ -165,7 +146,6 @@ class InvoiceDetailViewModel(
             onSuccess = { sendEvent(InvoiceDetailEvent.NavigateBack) }
         )
     }
-
     private fun callCustomer() {
         uiState.value.customer?.phone?.takeIf { it.isNotBlank() }
             ?.let { phone -> sendEvent(InvoiceDetailEvent.MakePhoneCall(phone)) }

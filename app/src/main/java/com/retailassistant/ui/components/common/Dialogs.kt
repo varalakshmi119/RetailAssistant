@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.common
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -22,7 +21,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
 @Composable
 fun AddPaymentDialog(
     onDismiss: () -> Unit,
@@ -32,7 +30,6 @@ fun AddPaymentDialog(
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     val isAmountValid by remember(amount) { derivedStateOf { (amount.toDoubleOrNull() ?: 0.0) > 0.0 } }
-
     AlertDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Record a Payment") },
@@ -60,7 +57,6 @@ fun AddPaymentDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !isProcessing) { Text("Cancel") } }
     )
 }
-
 @Composable
 fun AddNoteDialog(
     onDismiss: () -> Unit,
@@ -89,7 +85,6 @@ fun AddNoteDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !isProcessing) { Text("Cancel") } }
     )
 }
-
 @Composable
 fun PostponeDueDateDialog(
     currentDueDate: LocalDate,
@@ -100,7 +95,6 @@ fun PostponeDueDateDialog(
     var newDueDate by remember { mutableStateOf(currentDueDate.plusDays(7)) }
     var reason by remember { mutableStateOf("") }
     val isDateValid = newDueDate.isAfter(currentDueDate)
-
     AlertDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
         title = { Text("Postpone Due Date") },
@@ -136,7 +130,6 @@ fun PostponeDueDateDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !isProcessing) { Text("Cancel") } }
     )
 }
-
 @Composable
 fun ConfirmDeleteDialog(
     title: String,

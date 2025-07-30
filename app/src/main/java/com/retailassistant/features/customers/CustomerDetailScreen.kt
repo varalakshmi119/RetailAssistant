@@ -1,5 +1,4 @@
 package com.retailassistant.features.customers
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,7 +49,6 @@ import com.retailassistant.ui.components.specific.InvoiceCard
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.time.format.DateTimeFormatter
-
 @Composable
 fun CustomerDetailScreen(
     customerId: String,
@@ -60,7 +58,6 @@ fun CustomerDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -69,7 +66,6 @@ fun CustomerDetailScreen(
             }
         }
     }
-
     if (state.activeDialog == CustomerDetailDialog.ConfirmDeleteCustomer) {
         ConfirmDeleteDialog(
             title = "Delete Customer?",
@@ -79,7 +75,6 @@ fun CustomerDetailScreen(
             isProcessing = state.isProcessingAction
         )
     }
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -146,7 +141,6 @@ fun CustomerDetailScreen(
         }
     }
 }
-
 @Composable
 private fun CustomerDetailHeader(state: CustomerDetailState) {
     ElevatedCard(modifier = Modifier.fillMaxSize()) {
@@ -165,7 +159,6 @@ private fun CustomerDetailHeader(state: CustomerDetailState) {
         }
     }
 }
-
 @Composable
 private fun StatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, valueColor: Color = LocalContentColor.current) {
     ElevatedCard(modifier = modifier) {

@@ -1,5 +1,4 @@
 package com.retailassistant.ui.theme
-
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -8,15 +7,12 @@ import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.sp
 import com.retailassistant.R
-
 val provider = GoogleFont.Provider(
     providerAuthority = "com.google.android.gms.fonts",
     providerPackage = "com.google.android.gms",
     certificates = R.array.com_google_android_gms_fonts_certs
 )
-
 val ManropeFont = GoogleFont("Manrope")
-
 val AppFontFamily = FontFamily(
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Light),
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Normal),
@@ -24,7 +20,6 @@ val AppFontFamily = FontFamily(
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.SemiBold),
     Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Bold)
 )
-
 val Typography = Typography(
     displayLarge = TextStyle(fontFamily = AppFontFamily, fontWeight = FontWeight.Bold, fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
     displayMedium = TextStyle(fontFamily = AppFontFamily, fontWeight = FontWeight.Bold, fontSize = 45.sp, lineHeight = 52.sp),

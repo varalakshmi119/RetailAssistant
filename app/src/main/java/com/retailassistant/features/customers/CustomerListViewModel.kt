@@ -1,5 +1,4 @@
 package com.retailassistant.features.customers
-
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -16,12 +15,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-
 data class CustomerWithStats(
     val customer: Customer,
     val stats: CustomerStats
 )
-
 data class CustomerListState(
     val customersWithStats: List<CustomerWithStats> = emptyList(),
     val searchQuery: String = "",
@@ -41,7 +38,6 @@ data class CustomerListState(
         }
     }
 }
-
 sealed interface CustomerListAction : UiAction {
     object RefreshData : CustomerListAction
     data class Search(val query: String) : CustomerListAction
@@ -49,20 +45,16 @@ sealed interface CustomerListAction : UiAction {
     data class EmailCustomer(val customer: Customer) : CustomerListAction
     data class DataLoaded(val customers: List<Customer>, val invoices: List<Invoice>) : CustomerListAction
 }
-
 sealed interface CustomerListEvent : UiEvent {
     data class ShowError(val message: String) : CustomerListEvent
     data class OpenDialer(val phone: String) : CustomerListEvent
     data class OpenEmail(val email: String) : CustomerListEvent
 }
-
 class CustomerListViewModel(
     private val repository: RetailRepository,
     supabase: SupabaseClient
 ) : MviViewModel<CustomerListState, CustomerListAction, CustomerListEvent>() {
-
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         if (userId != null) {
             repository.getCustomersStream(userId)
@@ -72,15 +64,12 @@ class CustomerListViewModel(
                 .catch { e -> sendEvent(CustomerListEvent.ShowError(e.message ?: "Failed to load data")) }
                 .onEach { sendAction(it) }
                 .launchIn(viewModelScope)
-
             refreshData()
         } else {
             setState { copy(isLoading = false) }
         }
     }
-
     override fun createInitialState(): CustomerListState = CustomerListState()
-
     override fun handleAction(action: CustomerListAction) {
         when (action) {
             is CustomerListAction.RefreshData -> refreshData()
@@ -90,10 +79,8 @@ class CustomerListViewModel(
             is CustomerListAction.DataLoaded -> processLoadedData(action.customers, action.invoices)
         }
     }
-
     private fun processLoadedData(customers: List<Customer>, invoices: List<Invoice>) {
         val invoicesByCustomerId = invoices.groupBy { it.customerId }
-
         val customersWithStats = customers.map { customer ->
             val customerInvoices = invoicesByCustomerId[customer.id] ?: emptyList()
             val stats = CustomerStats(
@@ -103,7 +90,6 @@ class CustomerListViewModel(
             )
             CustomerWithStats(customer, stats)
         }.sortedByDescending { it.stats.unpaidAmount }
-
         setState {
             copy(
                 customersWithStats = customersWithStats,
@@ -112,7 +98,6 @@ class CustomerListViewModel(
             )
         }
     }
-
     private fun refreshData() {
         if (userId == null) return
         viewModelScope.launch {

@@ -1,5 +1,4 @@
 package com.retailassistant.ui.navigation
-
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,23 +47,19 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import org.koin.compose.koinInject
-
 private const val FADE_ANIM_DURATION = 300
 private const val SLIDE_ANIM_DURATION = 400
-
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
     val supabase: SupabaseClient = koinInject()
     val sessionStatus by supabase.auth.sessionStatus.collectAsState()
-
     // This effect handles automatic navigation on auth state changes (e.g., logout).
     LaunchedEffect(sessionStatus, navController) {
         if (sessionStatus is SessionStatus.NotAuthenticated) {
             navController.navigateToAuth()
         }
     }
-
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
@@ -99,7 +94,6 @@ fun AppNavigation() {
         }
     }
 }
-
 private fun NavGraphBuilder.authGraph(navController: NavHostController) {
     navigation(
         route = Screen.Auth.route,
@@ -116,7 +110,6 @@ private fun NavGraphBuilder.authGraph(navController: NavHostController) {
         }
     }
 }
-
 private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
     navigation(
         route = Screen.Main.route,
@@ -158,14 +151,12 @@ private fun NavGraphBuilder.mainGraph(navController: NavHostController) {
         }
     }
 }
-
 @Composable
 private fun MainScreen(rootNavController: NavHostController) {
     val bottomBarNavController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val currentNavBackStackEntry by bottomBarNavController.currentBackStackEntryAsState()
     val currentRoute = currentNavBackStackEntry?.destination?.route
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = { AppBottomBar(navController = bottomBarNavController) },
@@ -212,7 +203,6 @@ private fun MainScreen(rootNavController: NavHostController) {
         }
     }
 }
-
 fun NavHostController.navigateToAuth() {
     if (this.currentDestination?.route?.startsWith(Screen.Auth.route) == false) {
         navigate(Screen.Auth.route) {

@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.list
-
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,7 +36,6 @@ import com.retailassistant.ui.components.specific.InvoiceFilter
 import com.retailassistant.ui.components.specific.InvoiceFilterChips
 import org.koin.androidx.compose.koinViewModel
 import java.time.format.DateTimeFormatter
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun InvoiceListScreen(
@@ -46,7 +44,6 @@ fun InvoiceListScreen(
     viewModel: InvoiceListViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
             when (event) {
@@ -54,7 +51,6 @@ fun InvoiceListScreen(
             }
         }
     }
-
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -82,7 +78,6 @@ fun InvoiceListScreen(
                 onFilterSelected = { viewModel.sendAction(InvoiceListAction.Filter(it)) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.sendAction(InvoiceListAction.RefreshData) },

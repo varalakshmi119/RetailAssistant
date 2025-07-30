@@ -1,9 +1,7 @@
 package com.retailassistant.data.image
-
 import coil.key.Keyer
 import coil.request.Options
 import okhttp3.HttpUrl.Companion.toHttpUrl
-
 /**
  * A custom Coil Keyer that extracts the stable path from a temporary Supabase signed URL.
  * This allows Coil to use its disk cache effectively, as the cache key will be consistent

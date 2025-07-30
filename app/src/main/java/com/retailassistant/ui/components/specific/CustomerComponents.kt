@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.specific
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,9 +36,7 @@ import com.retailassistant.core.Utils
 import com.retailassistant.data.db.Customer
 import com.retailassistant.ui.components.common.ElevatedCard
 import com.retailassistant.ui.theme.AppGradients
-
 data class CustomerStats(val totalInvoices: Int, val unpaidAmount: Double, val overdueCount: Int)
-
 @Composable
 fun CustomerCard(
     customer: Customer,
@@ -74,7 +71,6 @@ fun CustomerCard(
                     }
                 }
             }
-
             if (stats.unpaidAmount > 0) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -98,7 +94,6 @@ fun CustomerCard(
         }
     }
 }
-
 @Composable
 fun Avatar(name: String, modifier: Modifier = Modifier, size: Dp = 48.dp) {
     val gradient = AppGradients.getGradientForName(name)
