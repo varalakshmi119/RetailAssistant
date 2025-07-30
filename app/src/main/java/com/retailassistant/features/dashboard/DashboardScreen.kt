@@ -61,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.retailassistant.core.ConnectivityObserver
 import com.retailassistant.core.Utils
 import com.retailassistant.ui.components.common.AnimatedCounter
 import com.retailassistant.ui.components.common.CenteredTopAppBar
@@ -83,6 +84,10 @@ fun DashboardScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    
+    // Observe network connectivity
+    val connectivityObserver = remember { ConnectivityObserver(context) }
+    val isOnline by connectivityObserver.observe().collectAsStateWithLifecycle(initialValue = true)
     var showPermissionCard by rememberSaveable { mutableStateOf(true) }
     var hasNotificationPermission by remember {
         mutableStateOf(
@@ -167,6 +172,13 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item { DashboardHeader(userName = state.userName) }
+
+                // Show offline indicator when not connected
+                if (!isOnline) {
+                    item {
+                        OfflineIndicatorCard()
+                    }
+                }
 
                 if (showPermissionCard && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     item {
@@ -356,6 +368,42 @@ private fun StatCard(
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White
             )
+        }
+    }
+}
+
+@Composable
+private fun OfflineIndicatorCard() {
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Column {
+                Text(
+                    text = "You're offline",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = "Some features may not be available. Data will sync when connection is restored.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
         }
     }
 }

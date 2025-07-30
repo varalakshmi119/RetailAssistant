@@ -75,8 +75,11 @@ class RetailRepositoryImpl(
                     put("p_due_date", JsonPrimitive(dueDate.toString()))
                     put("p_image_path", JsonPrimitive(imagePath))
                 })
-                // Sync after successful creation
-                syncAllUserData(userId).getOrThrow()
+                // Sync after successful creation - handle sync failure gracefully
+                syncAllUserData(userId).onFailure { syncError ->
+                    // Log sync failure but don't fail the entire operation since invoice was created successfully
+                    println("Warning: Invoice created successfully but sync failed: ${syncError.message}")
+                }
             } catch (dbException: Exception) {
                 // If the DB operation fails, attempt to clean up the orphaned image
                 runCatching {
@@ -143,7 +146,10 @@ class RetailRepositoryImpl(
                     }
                 }
             })
-            syncAllUserData(userId).getOrThrow()
+            syncAllUserData(userId).onFailure { syncError ->
+                // Log sync failure but don't fail the operation since the main action succeeded
+                println("Warning: Operation completed successfully but sync failed: ${syncError.message}")
+            }
         }.fold(
             onSuccess = { Result.success(Unit) },
             onFailure = { Result.failure(mapException(it, errorMsg)) }

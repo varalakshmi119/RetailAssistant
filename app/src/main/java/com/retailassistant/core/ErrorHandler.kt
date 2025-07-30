@@ -23,8 +23,8 @@ object ErrorHandler {
             is UnknownHostException -> "No internet connection. Please check your network."
             is HttpRequestException -> "Network request failed. Please try again."  // Generic, as no status available
             is RestException -> parseRestException(throwable)
-            is IllegalArgumentException -> throwable.message ?: "Invalid input provided."
-            is IllegalStateException -> throwable.message ?: "An invalid operation was attempted."
+            is IllegalArgumentException -> sanitizeErrorMessage(throwable.message) ?: "Invalid input provided."
+            is IllegalStateException -> sanitizeErrorMessage(throwable.message) ?: "An invalid operation was attempted."
             else -> throwable.message?.takeIf { it.isNotBlank() } ?: defaultMessage
         }
     }
@@ -79,5 +79,29 @@ object ErrorHandler {
             is RestException -> throwable.statusCode == 401 || throwable.statusCode == 403
             else -> false  // HttpRequestException has no status, so can't be auth error
         }
+    }
+
+    /**
+     * Sanitizes error messages to prevent exposure of sensitive information
+     */
+    private fun sanitizeErrorMessage(message: String?): String? {
+        if (message.isNullOrBlank()) return null
+        
+        // Remove potential sensitive patterns
+        val sensitivePatterns = listOf(
+            Regex("password[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
+            Regex("token[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
+            Regex("key[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
+            Regex("secret[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
+            Regex("\\b\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}\\b"), // Credit card patterns
+            Regex("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b") // Email patterns in error messages
+        )
+        
+        var sanitized = message ?: return null
+        sensitivePatterns.forEach { pattern ->
+            sanitized = pattern.replace(sanitized, "[REDACTED]")
+        }
+        
+        return sanitized.take(200) // Limit message length
     }
 }

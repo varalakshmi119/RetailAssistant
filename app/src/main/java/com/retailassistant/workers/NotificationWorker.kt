@@ -34,10 +34,14 @@ class NotificationWorker(
         const val WORK_NAME = "OverdueInvoiceNotifier"
         private const val CHANNEL_ID = "overdue_invoices_channel"
         private const val NOTIFICATION_ID = 101
+        private const val MAX_RETRY_COUNT = 3
+        private const val RETRY_COUNT_KEY = "retry_count"
     }
 
     override suspend fun doWork(): Result {
         val userId = supabase.auth.currentUserOrNull()?.id ?: return Result.success() // No user, no work.
+        
+        val retryCount = inputData.getInt(RETRY_COUNT_KEY, 0)
 
         return try {
             // First, sync data to ensure we have the latest information
@@ -52,8 +56,14 @@ class NotificationWorker(
 
             Result.success()
         } catch (e: Exception) {
-            // If sync fails or any other error occurs, retry later
-            Result.retry()
+            // Implement retry limit to prevent infinite retries
+            if (retryCount < MAX_RETRY_COUNT) {
+                println("NotificationWorker failed (attempt ${retryCount + 1}/$MAX_RETRY_COUNT): ${e.message}")
+                Result.retry()
+            } else {
+                println("NotificationWorker failed after $MAX_RETRY_COUNT attempts, giving up: ${e.message}")
+                Result.failure()
+            }
         }
     }
 

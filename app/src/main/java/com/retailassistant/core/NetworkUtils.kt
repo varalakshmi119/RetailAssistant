@@ -34,6 +34,6 @@ object NetworkUtils {
                 }
             }
         }
-        throw lastException ?: IllegalStateException("Max retries exceeded without a specific exception.")
+        throw lastException ?: IllegalStateException("Max retries ($maxRetries) exceeded without capturing a specific exception")
     }
 }

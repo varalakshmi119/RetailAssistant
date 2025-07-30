@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
+import com.retailassistant.core.SharingUtils
 import com.retailassistant.core.Utils
 import com.retailassistant.data.db.Invoice
 import com.retailassistant.data.db.InvoiceStatus
@@ -110,6 +112,22 @@ fun InvoiceDetailScreen(
                 },
                 actions = {
                     if (state.invoice != null) {
+                        IconButton(
+                            onClick = { 
+                                SharingUtils.shareInvoiceViaWhatsApp(
+                                    context = context,
+                                    invoice = state.invoice!!,
+                                    customer = state.customer,
+                                    imageBytes = null, // TODO: Add image bytes if available
+                                    onError = { error ->
+                                        // Show error via snackbar
+                                        viewModel.sendAction(InvoiceDetailAction.ShowMessage(error))
+                                    }
+                                )
+                            }
+                        ) {
+                            Icon(Icons.Default.Share, "Share Invoice")
+                        }
                         IconButton(onClick = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.ConfirmDeleteInvoice)) }) {
                             Icon(Icons.Default.DeleteOutline, "Delete Invoice", tint = MaterialTheme.colorScheme.error)
                         }

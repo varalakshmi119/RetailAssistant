@@ -40,6 +40,7 @@ data class InvoiceCreationState(
         get() = customerName.trim().length >= 2 &&
                 (amount.toDoubleOrNull() ?: 0.0) > 0.0 &&
                 scannedImageUri != null &&
+                dueDate.isAfter(issueDate) && // Ensure due date is after issue date
                 !isAiExtracting &&
                 !isSaving
 }
@@ -147,8 +148,16 @@ class InvoiceCreationViewModel(
             sendEvent(InvoiceCreationEvent.ShowMessage("User not authenticated. Please sign in again."))
             return
         }
-        if (!uiState.value.isFormValid) {
-            sendEvent(InvoiceCreationEvent.ShowMessage("Please fill all required fields and scan an invoice."))
+        val state = uiState.value
+        if (!state.isFormValid) {
+            val errorMessage = when {
+                state.customerName.trim().length < 2 -> "Customer name must be at least 2 characters."
+                (state.amount.toDoubleOrNull() ?: 0.0) <= 0.0 -> "Amount must be greater than zero."
+                state.scannedImageUri == null -> "Please scan an invoice image."
+                !state.dueDate.isAfter(state.issueDate) -> "Due date must be after issue date."
+                else -> "Please fill all required fields and scan an invoice."
+            }
+            sendEvent(InvoiceCreationEvent.ShowMessage(errorMessage))
             return
         }
         viewModelScope.launch {

@@ -45,6 +45,7 @@ sealed interface InvoiceDetailAction : UiAction {
     data class AddNote(val note: String) : InvoiceDetailAction
     data class PostponeDueDate(val newDueDate: LocalDate, val reason: String?) : InvoiceDetailAction
     object DeleteInvoice : InvoiceDetailAction
+    data class ShowMessage(val message: String) : InvoiceDetailAction
 }
 
 sealed interface InvoiceDetailEvent : UiEvent {
@@ -112,6 +113,7 @@ class InvoiceDetailViewModel(
             is InvoiceDetailAction.CallCustomer -> callCustomer()
             is InvoiceDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog, isProcessingAction = false) }
             is InvoiceDetailAction.DeleteInvoice -> deleteInvoice()
+            is InvoiceDetailAction.ShowMessage -> sendEvent(InvoiceDetailEvent.ShowMessage(action.message))
         }
     }
 
