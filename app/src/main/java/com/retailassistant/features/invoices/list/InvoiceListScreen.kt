@@ -103,7 +103,6 @@ fun InvoiceListScreen(
                         ) {
                             groupedInvoices.forEach { (status, invoices) ->
                                 stickyHeader {
-                                    // DESIGN: Styled the sticky header for better visual grouping.
                                     Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -126,7 +125,7 @@ fun InvoiceListScreen(
                                         customerName = item.customer?.name ?: "Unknown Customer",
                                         friendlyDueDate = friendlyDueDate,
                                         onClick = { onNavigateToInvoice(item.invoice.id) },
-                                        modifier = Modifier.animateItem()
+                                        // FIX: Removed redundant .animateItem() modifier. The key handles animations.
                                     )
                                 }
                             }

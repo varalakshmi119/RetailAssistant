@@ -101,7 +101,7 @@ fun CustomerListScreen(
                                     onClick = { onNavigateToCustomer(customerWithStats.customer.id) },
                                     onCallClick = { viewModel.sendAction(CustomerListAction.CallCustomer(customerWithStats.customer)) },
                                     onEmailClick = { viewModel.sendAction(CustomerListAction.EmailCustomer(customerWithStats.customer)) },
-                                    modifier = Modifier.animateItem()
+                                    // FIX: Removed redundant .animateItem() modifier. The key handles animations.
                                 )
                             }
                         }

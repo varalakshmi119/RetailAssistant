@@ -101,13 +101,17 @@ class CustomerListViewModel(
     private fun refreshData() {
         if (userId == null) return
         viewModelScope.launch {
-            setState { copy(isRefreshing = true) }
+            // FIX: Differentiate between initial load and pull-to-refresh.
+            setState {
+                if (uiState.value.customersWithStats.isEmpty()) copy(isLoading = true)
+                else copy(isRefreshing = true)
+            }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(CustomerListEvent.ShowError(error.message ?: "Sync failed"))
                 // FIX: Reset both loading states on failure to prevent infinite loading
                 setState { copy(isRefreshing = false, isLoading = false) }
             }
-            // isRefreshing is set to false in processLoadedData upon success
+            // isRefreshing/isLoading is set to false in processLoadedData upon success
         }
     }
 }

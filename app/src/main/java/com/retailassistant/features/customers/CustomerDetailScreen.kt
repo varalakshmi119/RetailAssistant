@@ -158,7 +158,7 @@ fun CustomerDetailScreen(
                                 customerName = state.customer!!.name,
                                 friendlyDueDate = friendlyDueDate,
                                 onClick = { onNavigateToInvoice(invoice.id) },
-                                modifier = Modifier.animateItem()
+                                // FIX: Removed redundant .animateItem() modifier. The key handles animations.
                             )
                         }
                     }

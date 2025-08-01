@@ -86,7 +86,7 @@ class InvoiceListViewModel(
                 }
                 .onEach { sendAction(it) }
                 .launchIn(viewModelScope)
-            refreshData(isInitial = true)
+            refreshData()
         } else {
             setState { copy(isLoading = false) }
         }
@@ -112,16 +112,20 @@ class InvoiceListViewModel(
             }
         }
     }
-    private fun refreshData(isInitial: Boolean = false) {
+    private fun refreshData() {
         if (userId == null) return
         viewModelScope.launch {
-            if (!isInitial) setState { copy(isRefreshing = true) }
+            // FIX: Differentiate between initial load and pull-to-refresh.
+            setState {
+                if (uiState.value.allInvoices.isEmpty()) copy(isLoading = true)
+                else copy(isRefreshing = true)
+            }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(InvoiceListEvent.ShowError(error.message ?: "Sync failed"))
                 // FIX: Reset both loading states on failure to prevent infinite loading
                 setState { copy(isRefreshing = false, isLoading = false) }
             }
-            // On success, isRefreshing is set to false by the DataLoaded action
+            // On success, isRefreshing/isLoading is set to false by the DataLoaded action
         }
     }
 }

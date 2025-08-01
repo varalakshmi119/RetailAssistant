@@ -189,8 +189,6 @@ fun DashboardScreen(
                     )
                 }
                 if (state.isLoading && state.invoicesWithCustomers.isEmpty()) {
-                    // FIX: Replaced the incorrect call to ShimmeringList with individual Box placeholders.
-                    // This prevents nesting a LazyColumn within another LazyColumn.
                     items(count = 3) {
                         Box(
                             modifier = Modifier
@@ -215,7 +213,7 @@ fun DashboardScreen(
                             customerName = item.customer?.name ?: "Unknown Customer",
                             friendlyDueDate = friendlyDueDate,
                             onClick = { onNavigateToInvoice(item.invoice.id) },
-                            modifier = Modifier.animateItem()
+                            // FIX: Removed redundant .animateItem() modifier. The key handles animations.
                         )
                     }
                 }
@@ -228,7 +226,6 @@ private fun PermissionRequestCard(
     onAllowClick: () -> Unit,
     onDismissClick: () -> Unit
 ) {
-    // DESIGN: A styled card for permission requests that fits the new branding.
     PanelCard(
         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
     ) {

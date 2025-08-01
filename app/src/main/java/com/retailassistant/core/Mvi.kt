@@ -39,8 +39,10 @@ abstract class MviViewModel<S : UiState, A : UiAction, E : UiEvent> : ViewModel(
     }
     protected abstract fun handleAction(action: A)
     fun sendAction(action: A) {
-        // With the explicit buffer, tryEmit is now safe, reliable, and performant.
-        _action.tryEmit(action)
+        // FIX: Use emit in a coroutine to guarantee action delivery and prevent dropping actions under load.
+        viewModelScope.launch {
+            _action.emit(action)
+        }
     }
     protected fun setState(reduce: S.() -> S) {
         _uiState.value = uiState.value.reduce()

@@ -116,7 +116,7 @@ fun InvoiceCreationScreen(
                     text = "Save Invoice",
                     onClick = { viewModel.sendAction(InvoiceCreationAction.SaveInvoice) },
                     isLoading = state.isSaving,
-                    enabled = state.isFormValid,
+                    enabled = state.validationResult is ValidationResult.Valid,
                     modifier = Modifier
                         .padding(16.dp)
                         .safeDrawingPadding()

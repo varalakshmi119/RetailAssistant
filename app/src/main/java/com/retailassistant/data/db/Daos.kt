@@ -21,6 +21,9 @@ interface CustomerDao {
     suspend fun clearForUser(userId: String)
     @Query("SELECT id FROM customers WHERE userId = :userId")
     suspend fun getCustomerIdsForUser(userId: String): List<String>
+    // FIX: Added for efficient bulk deletion during sync.
+    @Query("DELETE FROM customers WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
 @Dao
 interface InvoiceDao {
@@ -40,6 +43,9 @@ interface InvoiceDao {
     suspend fun clearForUser(userId: String)
     @Query("SELECT id FROM invoices WHERE userId = :userId")
     suspend fun getInvoiceIdsForUser(userId: String): List<String>
+    // FIX: Added for efficient bulk deletion during sync.
+    @Query("DELETE FROM invoices WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
 @Dao
 interface InteractionLogDao {

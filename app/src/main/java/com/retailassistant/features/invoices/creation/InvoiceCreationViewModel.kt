@@ -1,5 +1,4 @@
 package com.retailassistant.features.invoices.creation
-
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
@@ -25,6 +24,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
+// FIX: Centralized validation logic into a result class
+sealed interface ValidationResult {
+    data object Valid : ValidationResult
+    data class Invalid(val message: String) : ValidationResult
+}
+
 data class InvoiceCreationState(
     val customerName: String = "",
     val selectedCustomerId: String? = null,
@@ -38,15 +43,18 @@ data class InvoiceCreationState(
     val isSaving: Boolean = false,
     val customers: List<Customer> = emptyList()
 ) : UiState {
-    val isFormValid: Boolean
-        get() = customerName.trim().length >= 2 &&
-                (amount.toDoubleOrNull() ?: 0.0) > 0.0 &&
-                scannedImageUri != null &&
-                !dueDate.isBefore(issueDate) && // Allow same-day due date
-                !isAiExtracting &&
-                !isSaving
+    // FIX: Replaced a simple boolean with a result class to provide specific error messages.
+    val validationResult: ValidationResult
+        get() {
+            if (customerName.trim().length < 2) return ValidationResult.Invalid("Customer name must be at least 2 characters.")
+            if ((amount.toDoubleOrNull() ?: 0.0) <= 0.0) return ValidationResult.Invalid("Amount must be greater than zero.")
+            if (scannedImageUri == null) return ValidationResult.Invalid("Please scan an invoice image.")
+            if (dueDate.isBefore(issueDate)) return ValidationResult.Invalid("Due date cannot be before the issue date.")
+            if (isAiExtracting) return ValidationResult.Invalid("Please wait for AI extraction to finish.")
+            if (isSaving) return ValidationResult.Invalid("Already saving...")
+            return ValidationResult.Valid
+        }
 }
-
 sealed interface InvoiceCreationAction : UiAction {
     data class ImageSelected(val uri: Uri) : InvoiceCreationAction
     object SaveInvoice : InvoiceCreationAction
@@ -60,12 +68,10 @@ sealed interface InvoiceCreationAction : UiAction {
     object ClearImage : InvoiceCreationAction
     object ShowScannerError : InvoiceCreationAction
 }
-
 sealed interface InvoiceCreationEvent : UiEvent {
     object NavigateBack : InvoiceCreationEvent
     data class ShowMessage(val message: String) : InvoiceCreationEvent
 }
-
 class InvoiceCreationViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val repository: RetailRepository,
@@ -77,7 +83,6 @@ class InvoiceCreationViewModel(
     private var imageBytes: ByteArray? = null
     private var aiExtractionJob: Job? = null
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
-
     init {
         restoreState()
         if (userId != null) {
@@ -86,9 +91,7 @@ class InvoiceCreationViewModel(
                 .launchIn(viewModelScope)
         }
     }
-
     override fun createInitialState() = InvoiceCreationState()
-
     override fun handleAction(action: InvoiceCreationAction) {
         when (action) {
             is InvoiceCreationAction.ImageSelected -> processImage(action.uri)
@@ -107,16 +110,15 @@ class InvoiceCreationViewModel(
             is InvoiceCreationAction.ShowScannerError -> sendEvent(InvoiceCreationEvent.ShowMessage("Document scanner is unavailable on this device."))
         }
     }
-
     private fun processImage(uri: Uri) {
         aiExtractionJob?.cancel()
         viewModelScope.launch {
             val isExtractionEnabled = settingsRepository.extractionEnabled.first()
-            updateState(Keys.IMAGE_URI, uri.toString()) { 
+            updateState(Keys.IMAGE_URI, uri.toString()) {
                 copy(
-                    scannedImageUri = uri, 
+                    scannedImageUri = uri,
                     isAiExtracting = isExtractionEnabled
-                ) 
+                )
             }
             imageHandler.compressImageForUpload(uri)
                 .onSuccess { bytes ->
@@ -131,7 +133,6 @@ class InvoiceCreationViewModel(
                 }
         }
     }
-
     private suspend fun extractDataFromImage(bytes: ByteArray) {
         geminiClient.extractInvoiceData(bytes)
             .onSuccess { data ->
@@ -152,25 +153,22 @@ class InvoiceCreationViewModel(
             }
         setState { copy(isAiExtracting = false) }
     }
-
     private fun saveInvoice() {
         if (userId == null) {
             sendEvent(InvoiceCreationEvent.ShowMessage("User not authenticated. Please sign in again."))
             return
         }
-        val state = uiState.value
-        // FIX: Provide specific validation error messages
-        if (!state.isFormValid) {
-            val errorMessage = when {
-                state.customerName.trim().length < 2 -> "Customer name must be at least 2 characters."
-                (state.amount.toDoubleOrNull() ?: 0.0) <= 0.0 -> "Amount must be greater than zero."
-                state.scannedImageUri == null -> "Please scan an invoice image."
-                state.dueDate.isBefore(state.issueDate) -> "Due date cannot be before the issue date."
-                else -> "Please fill all required fields and scan an invoice."
+        // FIX: Use the centralized validation result to check validity and show specific error messages.
+        when (val validation = uiState.value.validationResult) {
+            is ValidationResult.Invalid -> {
+                sendEvent(InvoiceCreationEvent.ShowMessage(validation.message))
+                return
             }
-            sendEvent(InvoiceCreationEvent.ShowMessage(errorMessage))
-            return
+            is ValidationResult.Valid -> {
+                // Proceed with saving
+            }
         }
+
         viewModelScope.launch {
             setState { copy(isSaving = true) }
             val currentImageBytes = imageBytes
@@ -198,7 +196,6 @@ class InvoiceCreationViewModel(
             }
         }
     }
-
     private fun selectCustomer(customer: Customer) {
         savedStateHandle[Keys.CUSTOMER_NAME] = customer.name
         savedStateHandle[Keys.CUSTOMER_ID] = customer.id
@@ -213,17 +210,14 @@ class InvoiceCreationViewModel(
             )
         }
     }
-
     private fun clearImageData() {
         aiExtractionJob?.cancel()
         imageBytes = null
         updateState(Keys.IMAGE_URI, null) { copy(scannedImageUri = null, isAiExtracting = false) }
     }
-
     private fun parseDate(dateStr: String?): LocalDate? {
         return dateStr?.let { try { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) } catch (e: DateTimeParseException) { null } }
     }
-
     // --- State Persistence ---
     private object Keys {
         const val CUSTOMER_NAME = "customerName"
@@ -235,12 +229,10 @@ class InvoiceCreationViewModel(
         const val AMOUNT = "amount"
         const val IMAGE_URI = "scannedImageUri"
     }
-
     private fun <T> updateState(key: String, value: T?, reducer: InvoiceCreationState.(T?) -> InvoiceCreationState) {
         savedStateHandle[key] = value
         setState { reducer(value) }
     }
-
     private fun restoreState() {
         setState {
             copy(

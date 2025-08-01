@@ -50,7 +50,7 @@ class DashboardViewModel(
                 .catch { e -> sendEvent(DashboardEvent.ShowError(e.message ?: "Failed to load data")) }
                 .onEach { sendAction(it) }
                 .launchIn(viewModelScope)
-            refreshData(isInitial = true)
+            refreshData()
         } else {
             setState { copy(isLoading = false) }
         }
@@ -78,10 +78,14 @@ class DashboardViewModel(
             )
         }
     }
-    private fun refreshData(isInitial: Boolean = false) {
+    private fun refreshData() {
         if (userId == null) return
         viewModelScope.launch {
-            if (!isInitial) setState { copy(isRefreshing = true) }
+            // FIX: Differentiate between initial load and pull-to-refresh.
+            setState {
+                if (uiState.value.invoicesWithCustomers.isEmpty()) copy(isLoading = true)
+                else copy(isRefreshing = true)
+            }
             repository.syncAllUserData(userId).onFailure { error ->
                 sendEvent(DashboardEvent.ShowError(error.message ?: "Sync failed"))
                 // FIX: Reset both loading states on failure to prevent infinite loading
