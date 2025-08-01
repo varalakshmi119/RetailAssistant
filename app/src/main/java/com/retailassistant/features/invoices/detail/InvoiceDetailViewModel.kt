@@ -52,11 +52,12 @@ sealed interface InvoiceDetailAction : UiAction {
     data class ShowMessage(val message: String) : InvoiceDetailAction
 }
 
+// MODIFICATION: Corrected the inheritance. Each event now correctly implements InvoiceDetailEvent.
 sealed interface InvoiceDetailEvent : UiEvent {
-    data class ShowMessage(val message: String) : UiEvent
-    data class MakePhoneCall(val phoneNumber: String) : UiEvent
-    data class SendWhatsAppReminder(val invoice: Invoice, val customer: Customer?, val imageBytes: ByteArray?) : UiEvent
-    object NavigateBack : UiEvent
+    data class ShowMessage(val message: String) : InvoiceDetailEvent
+    data class MakePhoneCall(val phoneNumber: String) : InvoiceDetailEvent
+    data class SendWhatsAppReminder(val invoice: Invoice, val customer: Customer?, val imageBytes: ByteArray?) : InvoiceDetailEvent
+    object NavigateBack : InvoiceDetailEvent
 }
 
 class InvoiceDetailViewModel(
@@ -185,12 +186,10 @@ class InvoiceDetailViewModel(
             return@launch
         }
 
-        // MODIFICATION: Properly handle the result of the image download.
         val imageBytesResult = currentState.imageUrl?.let { url ->
             repository.downloadImageBytes(url)
         }
 
-        // If the download fails, show a message but still proceed with text-only.
         if (imageBytesResult?.isFailure == true) {
             sendEvent(InvoiceDetailEvent.ShowMessage("Could not load image. Sending text reminder only."))
         }
