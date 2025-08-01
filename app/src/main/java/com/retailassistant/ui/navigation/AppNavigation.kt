@@ -41,6 +41,7 @@ import com.retailassistant.features.dashboard.DashboardScreen
 import com.retailassistant.features.invoices.creation.InvoiceCreationScreen
 import com.retailassistant.features.invoices.detail.InvoiceDetailScreen
 import com.retailassistant.features.invoices.list.InvoiceListScreen
+import com.retailassistant.features.settings.SettingsScreen
 import com.retailassistant.ui.components.common.AppBottomBar
 import com.retailassistant.ui.components.common.FullScreenLoading
 import io.github.jan.supabase.SupabaseClient
@@ -203,6 +204,11 @@ private fun MainScreen(rootNavController: NavHostController) {
                 CustomerListScreen(
                     onNavigateToCustomer = { rootNavController.navigate(Screen.CustomerDetail.createRoute(it)) },
                     snackbarHostState = snackbarHostState
+                )
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onNavigateBack = { bottomBarNavController.popBackStack() }
                 )
             }
         }

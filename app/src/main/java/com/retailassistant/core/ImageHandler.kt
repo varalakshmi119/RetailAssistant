@@ -14,7 +14,7 @@ import java.io.IOException
 class ImageHandler(private val context: Context) {
     private companion object {
         private const val TARGET_WIDTH = 1080
-        private const val COMPRESSION_QUALITY = 80
+        private const val COMPRESSION_QUALITY = 75
         private const val MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
     }
     suspend fun compressImageForUpload(imageUri: Uri): Result<ByteArray> = withContext(Dispatchers.IO) {

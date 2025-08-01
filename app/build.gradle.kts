@@ -17,7 +17,9 @@ if (localPropertiesFile.exists()) {
 android {
     namespace = "com.retailassistant"
     compileSdk = 36
-
+    ksp {
+             arg("room.schemaLocation", "$projectDir/schemas")
+         }
     defaultConfig {
         applicationId = "com.retailassistant"
         minSdk = 26
@@ -80,6 +82,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
 
     // Jetpack Compose - Using the Bill of Materials (BOM) for consistent versions
     implementation(platform(libs.androidx.compose.bom))

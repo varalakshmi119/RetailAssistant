@@ -27,9 +27,8 @@ import kotlinx.serialization.json.Json
  * building, JSON response parsing, and error handling gracefully.
  */
 class GeminiClient(private val httpClient: HttpClient) {
-    private val modelId = "gemini-1.5-flash"
+    private val modelId = "gemini-2.5-flash"
     private val apiKey = BuildConfig.GEMINI_API_KEY
-    // IMPROVEMENT (Security): Removed API key from URL. It will be sent in a header.
     private val apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent"
     private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
     suspend fun extractInvoiceData(imageBytes: ByteArray): Result<ExtractedInvoiceData> {

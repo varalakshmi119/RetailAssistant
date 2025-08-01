@@ -49,15 +49,11 @@ class AuthViewModel(
                 }
                 val userId = supabase.auth.currentUserOrNull()?.id
                     ?: throw IllegalStateException("Sign-in successful but user not found.")
-                // Perform initial sync on login - handle gracefully if it fails
                 repository.syncAllUserData(userId).onFailure { syncError ->
-                    // Log sync failure but still allow navigation since user is authenticated
-                    println("Warning: User authenticated but initial sync failed: ${syncError.message}")
                     sendEvent(AuthEvent.ShowMessage("Signed in successfully. Some data may not be up to date."))
                 }
                 sendEvent(AuthEvent.NavigateToDashboard)
             } catch (e: Exception) {
-                // IMPROVEMENT: Using the centralized, robust ErrorHandler.
                 val errorMessage = ErrorHandler.getErrorMessage(e, "Authentication failed.")
                 sendEvent(AuthEvent.ShowMessage(errorMessage))
             } finally {
@@ -76,7 +72,6 @@ class AuthViewModel(
                 sendEvent(AuthEvent.ShowMessage("Account created! Please check your email for a confirmation link."))
                 setState { copy(isSignUpMode = false, password = "") } // Switch to sign-in mode
             } catch (e: Exception) {
-                // IMPROVEMENT: Using the centralized, robust ErrorHandler.
                 sendEvent(AuthEvent.ShowMessage(ErrorHandler.getErrorMessage(e, "Sign-up failed.")))
             } finally {
                 setState { copy(isLoading = false) }

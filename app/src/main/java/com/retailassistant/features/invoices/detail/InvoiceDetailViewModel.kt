@@ -1,4 +1,5 @@
 package com.retailassistant.features.invoices.detail
+
 import androidx.lifecycle.viewModelScope
 import com.retailassistant.core.MviViewModel
 import com.retailassistant.core.UiAction
@@ -16,12 +17,14 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+
 sealed class ActiveDialog {
     data object AddPayment : ActiveDialog()
     data object AddNote : ActiveDialog()
     data object Postpone : ActiveDialog()
     data object ConfirmDeleteInvoice : ActiveDialog()
 }
+
 data class InvoiceDetailState(
     val invoice: Invoice? = null,
     val customer: Customer? = null,
@@ -31,6 +34,7 @@ data class InvoiceDetailState(
     val isProcessingAction: Boolean = false, // For dialog actions
     val activeDialog: ActiveDialog? = null,
 ) : UiState
+
 sealed interface InvoiceDetailAction : UiAction {
     // Internal actions for loading data
     data class DetailsLoaded(val invoice: Invoice, val logs: List<InteractionLog>) : InvoiceDetailAction
@@ -47,53 +51,55 @@ sealed interface InvoiceDetailAction : UiAction {
     object SendWhatsAppReminder : InvoiceDetailAction
     data class ShowMessage(val message: String) : InvoiceDetailAction
 }
+
 sealed interface InvoiceDetailEvent : UiEvent {
-    data class ShowMessage(val message: String) : InvoiceDetailEvent
-    data class MakePhoneCall(val phoneNumber: String) : InvoiceDetailEvent
-    data class SendWhatsAppReminder(val invoice: Invoice, val customer: Customer?, val imageBytes: ByteArray?) : InvoiceDetailEvent
-    object NavigateBack : InvoiceDetailEvent
+    data class ShowMessage(val message: String) : UiEvent
+    data class MakePhoneCall(val phoneNumber: String) : UiEvent
+    data class SendWhatsAppReminder(val invoice: Invoice, val customer: Customer?, val imageBytes: ByteArray?) : UiEvent
+    object NavigateBack : UiEvent
 }
+
 class InvoiceDetailViewModel(
     private val invoiceId: String,
     private val repository: RetailRepository,
     private val supabase: SupabaseClient
 ) : MviViewModel<InvoiceDetailState, InvoiceDetailAction, InvoiceDetailEvent>() {
+
     private val userId: String? = supabase.auth.currentUserOrNull()?.id
+
     init {
-        // FIX: Consolidated data loading into a single, more robust stream
         repository.getInvoiceWithDetails(invoiceId)
             .onEach { (invoice, logs) ->
                 if (invoice != null) {
-                    // Once invoice is confirmed to exist, load its related data
                     sendAction(InvoiceDetailAction.DetailsLoaded(invoice, logs))
                     loadCustomer(invoice.customerId)
                     loadImageUrl(invoice.originalScanUrl)
                 } else if (!uiState.value.isLoading) {
-                    // This handles the case where the invoice is deleted while the user is viewing it
                     sendEvent(InvoiceDetailEvent.NavigateBack)
                 } else {
-                    // This handles the case where the invoice ID was invalid from the start
                     setState { copy(isLoading = false) }
                 }
             }
             .launchIn(viewModelScope)
     }
+
     private fun loadCustomer(customerId: String) = viewModelScope.launch {
         repository.getCustomerById(customerId)
             .filterNotNull()
-            .first() // Take the first non-null emission
+            .first()
             .let { sendAction(InvoiceDetailAction.CustomerLoaded(it)) }
     }
+
     private fun loadImageUrl(path: String) = viewModelScope.launch {
-        // Prevent re-fetching if URL is already loaded
         if (uiState.value.imageUrl != null) return@launch
         repository.getPublicUrl(path)
             .onSuccess { sendAction(InvoiceDetailAction.ImageUrlLoaded(it)) }
             .onFailure { sendAction(InvoiceDetailAction.LoadFailed(it)) }
     }
+
     override fun createInitialState(): InvoiceDetailState = InvoiceDetailState()
+
     override fun handleAction(action: InvoiceDetailAction) {
-        println("DEBUG: handleAction called with: ${action::class.simpleName}")
         when (action) {
             is InvoiceDetailAction.DetailsLoaded -> setState { copy(invoice = action.invoice, logs = action.logs, isLoading = false) }
             is InvoiceDetailAction.CustomerLoaded -> setState { copy(customer = action.customer) }
@@ -105,13 +111,11 @@ class InvoiceDetailViewModel(
             is InvoiceDetailAction.CallCustomer -> callCustomer()
             is InvoiceDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog, isProcessingAction = false) }
             is InvoiceDetailAction.DeleteInvoice -> deleteInvoice()
-            is InvoiceDetailAction.SendWhatsAppReminder -> {
-                println("DEBUG: SendWhatsAppReminder action received")
-                sendWhatsAppReminder()
-            }
+            is InvoiceDetailAction.SendWhatsAppReminder -> sendWhatsAppReminder()
             is InvoiceDetailAction.ShowMessage -> sendEvent(InvoiceDetailEvent.ShowMessage(action.message))
         }
     }
+
     private fun performAction(
         repoCall: suspend () -> Result<Unit>,
         successMessage: String? = "Action completed successfully.",
@@ -129,6 +133,7 @@ class InvoiceDetailViewModel(
             setState { copy(isProcessingAction = false, activeDialog = null) }
         }
     }
+
     private fun addPayment(amount: Double, note: String?) {
         if (userId == null) return
         if (amount <= 0) {
@@ -137,6 +142,7 @@ class InvoiceDetailViewModel(
         }
         performAction(repoCall = { repository.addPayment(userId, invoiceId, amount, note) })
     }
+
     private fun addNote(note: String) {
         if (userId == null) return
         if (note.isBlank()) {
@@ -145,10 +151,12 @@ class InvoiceDetailViewModel(
         }
         performAction(repoCall = { repository.addNote(userId, invoiceId, note) })
     }
+
     private fun postponeDueDate(newDueDate: LocalDate, reason: String?) {
         if (userId == null) return
         performAction(repoCall = { repository.postponeDueDate(userId, invoiceId, newDueDate, reason) })
     }
+
     private fun deleteInvoice() {
         performAction(
             repoCall = { repository.deleteInvoice(invoiceId) },
@@ -156,47 +164,38 @@ class InvoiceDetailViewModel(
             onSuccess = { sendEvent(InvoiceDetailEvent.NavigateBack) }
         )
     }
+
     private fun callCustomer() {
         uiState.value.customer?.phone?.takeIf { it.isNotBlank() }
             ?.let { phone -> sendEvent(InvoiceDetailEvent.MakePhoneCall(phone)) }
             ?: sendEvent(InvoiceDetailEvent.ShowMessage("Customer has no phone number."))
     }
-    
+
     private fun sendWhatsAppReminder() = viewModelScope.launch {
-        println("DEBUG: sendWhatsAppReminder called")
-        
         val currentState = uiState.value
         val invoice = currentState.invoice
         val customer = currentState.customer
-        
-        println("DEBUG: Invoice: ${invoice?.id}, Customer: ${customer?.name}, Phone: ${customer?.phone}")
-        
+
         if (invoice == null) {
-            println("DEBUG: Invoice is null")
             sendEvent(InvoiceDetailEvent.ShowMessage("Invoice not found"))
             return@launch
         }
-        
         if (customer?.phone.isNullOrBlank()) {
-            println("DEBUG: Customer phone is null or blank")
             sendEvent(InvoiceDetailEvent.ShowMessage("Customer phone number is required for WhatsApp reminder"))
             return@launch
         }
-        
-        println("DEBUG: Getting image bytes from URL: ${currentState.imageUrl}")
-        // Get image bytes if available
-        val imageBytes = currentState.imageUrl?.let { url ->
-            try {
-                val result = repository.downloadImageBytes(url).getOrNull()
-                println("DEBUG: Downloaded image bytes: ${result?.size} bytes")
-                result
-            } catch (e: Exception) {
-                println("DEBUG: Error downloading image: ${e.message}")
-                null
-            }
+
+        // MODIFICATION: Properly handle the result of the image download.
+        val imageBytesResult = currentState.imageUrl?.let { url ->
+            repository.downloadImageBytes(url)
         }
-        
-        println("DEBUG: Sending WhatsApp reminder event")
+
+        // If the download fails, show a message but still proceed with text-only.
+        if (imageBytesResult?.isFailure == true) {
+            sendEvent(InvoiceDetailEvent.ShowMessage("Could not load image. Sending text reminder only."))
+        }
+
+        val imageBytes = imageBytesResult?.getOrNull()
         sendEvent(InvoiceDetailEvent.SendWhatsAppReminder(invoice, customer, imageBytes))
     }
 }

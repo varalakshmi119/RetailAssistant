@@ -1,4 +1,5 @@
 package com.retailassistant.features.invoices.detail
+
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.animateContentSize
@@ -86,28 +87,22 @@ fun InvoiceDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
-            println("DEBUG: Event received: ${event::class.simpleName}")
             when (event) {
-                is InvoiceDetailEvent.ShowMessage -> {
-                    println("DEBUG: Showing message: ${event.message}")
-                    snackbarHostState.showSnackbar(event.message)
-                }
+                is InvoiceDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
                 is InvoiceDetailEvent.MakePhoneCall -> makePhoneCall(context, event.phoneNumber)
                 is InvoiceDetailEvent.SendWhatsAppReminder -> {
-                    println("DEBUG: SendWhatsAppReminder event received")
                     SharingUtils.sendPaymentReminderViaWhatsApp(
                         context = context,
                         invoice = event.invoice,
                         customer = event.customer,
                         imageBytes = event.imageBytes,
                         onSuccess = {
-                            println("DEBUG: WhatsApp reminder success")
                             viewModel.sendAction(InvoiceDetailAction.ShowMessage("Payment reminder sent via WhatsApp"))
                         },
                         onError = { error ->
-                            println("DEBUG: WhatsApp reminder error: $error")
                             viewModel.sendAction(InvoiceDetailAction.ShowMessage(error))
                         }
                     )
@@ -116,7 +111,9 @@ fun InvoiceDetailScreen(
             }
         }
     }
+
     HandleDialogs(state = state, onAction = viewModel::sendAction)
+
     Scaffold(
         topBar = {
             CenteredTopAppBar(
@@ -128,17 +125,15 @@ fun InvoiceDetailScreen(
                 },
                 actions = {
                     if (state.invoice != null) {
-                        // WhatsApp Payment Reminder Button
                         val canSendWhatsApp = SharingUtils.canSendWhatsAppReminder(context, state.customer)
                         IconButton(
                             onClick = {
-                                println("DEBUG: WhatsApp button clicked in top bar")
                                 viewModel.sendAction(InvoiceDetailAction.SendWhatsAppReminder)
                             },
                             enabled = canSendWhatsApp
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Filled.Message, 
+                                Icons.AutoMirrored.Filled.Message,
                                 "Send WhatsApp Payment Reminder",
                                 tint = if (canSendWhatsApp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -181,7 +176,6 @@ fun InvoiceDetailScreen(
                             SharingUtils.WhatsAppStatus.NO_PHONE -> "No Phone Number"
                             SharingUtils.WhatsAppStatus.INVALID_PHONE -> "Invalid Phone Number"
                         }
-                        
                         ActionButtons(
                             invoiceStatus = invoice.status,
                             onAddPayment = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddPayment)) },
@@ -215,6 +209,7 @@ fun InvoiceDetailScreen(
         }
     }
 }
+
 @Composable
 private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAction) -> Unit) {
     when (val dialog = state.activeDialog) {
@@ -244,6 +239,7 @@ private fun HandleDialogs(state: InvoiceDetailState, onAction: (InvoiceDetailAct
         null -> {}
     }
 }
+
 @Composable
 private fun CustomerHeader(customerName: String, customerPhone: String?, onCall: () -> Unit, onNavigate: () -> Unit) {
     PanelCard(
@@ -295,6 +291,7 @@ private fun CustomerHeader(customerName: String, customerPhone: String?, onCall:
         }
     }
 }
+
 @Composable
 private fun PaymentSummaryCard(invoice: Invoice) {
     val progress by animateFloatAsState(
@@ -385,11 +382,12 @@ private fun PaymentSummaryCard(invoice: Invoice) {
         }
     }
 }
+
 @Composable
 private fun ActionButtons(
-    invoiceStatus: InvoiceStatus, 
-    onAddPayment: () -> Unit, 
-    onAddNote: () -> Unit, 
+    invoiceStatus: InvoiceStatus,
+    onAddPayment: () -> Unit,
+    onAddNote: () -> Unit,
     onPostpone: () -> Unit,
     onSendWhatsAppReminder: () -> Unit,
     canSendWhatsApp: Boolean,
@@ -413,21 +411,15 @@ private fun ActionButtons(
                     onClick = onAddPayment
                 )
             }
-            
-            // WhatsApp Payment Reminder Button
             if (invoiceStatus != InvoiceStatus.PAID) {
                 ActionButton(
                     text = whatsAppButtonText,
                     icon = Icons.AutoMirrored.Filled.Message,
-                    onClick = {
-                        println("DEBUG: WhatsApp button clicked in action buttons")
-                        onSendWhatsAppReminder()
-                    },
+                    onClick = onSendWhatsAppReminder,
                     enabled = canSendWhatsApp,
                     isTonal = true
                 )
             }
-            
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ActionButton(
                     text = "Add Note",
@@ -449,6 +441,7 @@ private fun ActionButtons(
         }
     }
 }
+
 @Composable
 private fun InvoiceImageCard(imageUrl: String?) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -505,6 +498,7 @@ private fun InvoiceImageCard(imageUrl: String?) {
         }
     }
 }
+
 private fun makePhoneCall(context: Context, phoneNumber: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri()))

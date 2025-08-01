@@ -63,7 +63,6 @@ object ErrorHandler {
             }
         }
     }
-    // FIX: Updated logic to correctly identify transient server errors as retriable network errors.
     fun isNetworkError(throwable: Throwable): Boolean = when (throwable) {
         is SocketTimeoutException, is UnknownHostException, is HttpRequestException -> true
         is RestException -> throwable.statusCode in 500..599 // e.g., 502, 503, 504 are network-like errors
@@ -80,7 +79,6 @@ object ErrorHandler {
      */
     private fun sanitizeErrorMessage(message: String?): String? {
         if (message.isNullOrBlank()) return null
-        // Remove potential sensitive patterns
         val sensitivePatterns = listOf(
             Regex("password[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
             Regex("token[\\s]*[:=][\\s]*\\S+", RegexOption.IGNORE_CASE),
