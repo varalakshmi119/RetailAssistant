@@ -44,11 +44,13 @@ sealed interface InvoiceDetailAction : UiAction {
     data class AddNote(val note: String) : InvoiceDetailAction
     data class PostponeDueDate(val newDueDate: LocalDate, val reason: String?) : InvoiceDetailAction
     object DeleteInvoice : InvoiceDetailAction
+    object SendWhatsAppReminder : InvoiceDetailAction
     data class ShowMessage(val message: String) : InvoiceDetailAction
 }
 sealed interface InvoiceDetailEvent : UiEvent {
     data class ShowMessage(val message: String) : InvoiceDetailEvent
     data class MakePhoneCall(val phoneNumber: String) : InvoiceDetailEvent
+    data class SendWhatsAppReminder(val invoice: Invoice, val customer: Customer?, val imageBytes: ByteArray?) : InvoiceDetailEvent
     object NavigateBack : InvoiceDetailEvent
 }
 class InvoiceDetailViewModel(
@@ -91,6 +93,7 @@ class InvoiceDetailViewModel(
     }
     override fun createInitialState(): InvoiceDetailState = InvoiceDetailState()
     override fun handleAction(action: InvoiceDetailAction) {
+        println("DEBUG: handleAction called with: ${action::class.simpleName}")
         when (action) {
             is InvoiceDetailAction.DetailsLoaded -> setState { copy(invoice = action.invoice, logs = action.logs, isLoading = false) }
             is InvoiceDetailAction.CustomerLoaded -> setState { copy(customer = action.customer) }
@@ -102,6 +105,10 @@ class InvoiceDetailViewModel(
             is InvoiceDetailAction.CallCustomer -> callCustomer()
             is InvoiceDetailAction.ShowDialog -> setState { copy(activeDialog = action.dialog, isProcessingAction = false) }
             is InvoiceDetailAction.DeleteInvoice -> deleteInvoice()
+            is InvoiceDetailAction.SendWhatsAppReminder -> {
+                println("DEBUG: SendWhatsAppReminder action received")
+                sendWhatsAppReminder()
+            }
             is InvoiceDetailAction.ShowMessage -> sendEvent(InvoiceDetailEvent.ShowMessage(action.message))
         }
     }
@@ -153,5 +160,43 @@ class InvoiceDetailViewModel(
         uiState.value.customer?.phone?.takeIf { it.isNotBlank() }
             ?.let { phone -> sendEvent(InvoiceDetailEvent.MakePhoneCall(phone)) }
             ?: sendEvent(InvoiceDetailEvent.ShowMessage("Customer has no phone number."))
+    }
+    
+    private fun sendWhatsAppReminder() = viewModelScope.launch {
+        println("DEBUG: sendWhatsAppReminder called")
+        
+        val currentState = uiState.value
+        val invoice = currentState.invoice
+        val customer = currentState.customer
+        
+        println("DEBUG: Invoice: ${invoice?.id}, Customer: ${customer?.name}, Phone: ${customer?.phone}")
+        
+        if (invoice == null) {
+            println("DEBUG: Invoice is null")
+            sendEvent(InvoiceDetailEvent.ShowMessage("Invoice not found"))
+            return@launch
+        }
+        
+        if (customer?.phone.isNullOrBlank()) {
+            println("DEBUG: Customer phone is null or blank")
+            sendEvent(InvoiceDetailEvent.ShowMessage("Customer phone number is required for WhatsApp reminder"))
+            return@launch
+        }
+        
+        println("DEBUG: Getting image bytes from URL: ${currentState.imageUrl}")
+        // Get image bytes if available
+        val imageBytes = currentState.imageUrl?.let { url ->
+            try {
+                val result = repository.downloadImageBytes(url).getOrNull()
+                println("DEBUG: Downloaded image bytes: ${result?.size} bytes")
+                result
+            } catch (e: Exception) {
+                println("DEBUG: Error downloading image: ${e.message}")
+                null
+            }
+        }
+        
+        println("DEBUG: Sending WhatsApp reminder event")
+        sendEvent(InvoiceDetailEvent.SendWhatsAppReminder(invoice, customer, imageBytes))
     }
 }

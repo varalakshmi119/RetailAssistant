@@ -1,5 +1,4 @@
 package com.retailassistant.ui.components.specific
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
@@ -17,14 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
-
 /**
  * Enum representing the different filtering options for invoices.
  */
 enum class InvoiceFilter {
     ALL, UNPAID, OVERDUE, PAID
 }
-
 /**
  * A composable that displays a row of filter chips for invoices.
  *
@@ -47,7 +44,6 @@ fun InvoiceFilterChips(
         // Iterate through all possible InvoiceFilter values.
         items(InvoiceFilter.entries.toTypedArray()) { filter ->
             val isSelected = selectedFilter == filter
-
             // DESIGN: Filter chips are styled to match the new, softer brand aesthetic.
             FilterChip(
                 selected = isSelected,

@@ -71,7 +71,6 @@ import com.retailassistant.ui.theme.AppGradients
 import com.retailassistant.ui.theme.GradientColors
 import org.koin.androidx.compose.koinViewModel
 import java.time.format.DateTimeFormatter
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(

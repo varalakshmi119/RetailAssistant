@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -87,9 +88,30 @@ fun InvoiceDetailScreen(
     val context = LocalContext.current
     LaunchedEffect(viewModel.event) {
         viewModel.event.collect { event ->
+            println("DEBUG: Event received: ${event::class.simpleName}")
             when (event) {
-                is InvoiceDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
+                is InvoiceDetailEvent.ShowMessage -> {
+                    println("DEBUG: Showing message: ${event.message}")
+                    snackbarHostState.showSnackbar(event.message)
+                }
                 is InvoiceDetailEvent.MakePhoneCall -> makePhoneCall(context, event.phoneNumber)
+                is InvoiceDetailEvent.SendWhatsAppReminder -> {
+                    println("DEBUG: SendWhatsAppReminder event received")
+                    SharingUtils.sendPaymentReminderViaWhatsApp(
+                        context = context,
+                        invoice = event.invoice,
+                        customer = event.customer,
+                        imageBytes = event.imageBytes,
+                        onSuccess = {
+                            println("DEBUG: WhatsApp reminder success")
+                            viewModel.sendAction(InvoiceDetailAction.ShowMessage("Payment reminder sent via WhatsApp"))
+                        },
+                        onError = { error ->
+                            println("DEBUG: WhatsApp reminder error: $error")
+                            viewModel.sendAction(InvoiceDetailAction.ShowMessage(error))
+                        }
+                    )
+                }
                 is InvoiceDetailEvent.NavigateBack -> onNavigateBack()
             }
         }
@@ -106,20 +128,20 @@ fun InvoiceDetailScreen(
                 },
                 actions = {
                     if (state.invoice != null) {
+                        // WhatsApp Payment Reminder Button
+                        val canSendWhatsApp = SharingUtils.canSendWhatsAppReminder(context, state.customer)
                         IconButton(
                             onClick = {
-                                SharingUtils.shareInvoiceGeneral(
-                                    context = context,
-                                    invoice = state.invoice!!,
-                                    customer = state.customer,
-                                    imageBytes = null, // TODO: Add image bytes if available
-                                    onError = { error ->
-                                        viewModel.sendAction(InvoiceDetailAction.ShowMessage(error))
-                                    }
-                                )
-                            }
+                                println("DEBUG: WhatsApp button clicked in top bar")
+                                viewModel.sendAction(InvoiceDetailAction.SendWhatsAppReminder)
+                            },
+                            enabled = canSendWhatsApp
                         ) {
-                            Icon(Icons.Default.Share, "Share Invoice")
+                            Icon(
+                                Icons.AutoMirrored.Filled.Message, 
+                                "Send WhatsApp Payment Reminder",
+                                tint = if (canSendWhatsApp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         IconButton(onClick = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.ConfirmDeleteInvoice)) }) {
                             Icon(Icons.Default.DeleteOutline, "Delete Invoice", tint = MaterialTheme.colorScheme.error)
@@ -151,11 +173,23 @@ fun InvoiceDetailScreen(
                     }
                     item { PaymentSummaryCard(invoice) }
                     item {
+                        val canSendWhatsApp = SharingUtils.canSendWhatsAppReminder(context, state.customer)
+                        val whatsAppStatus = SharingUtils.getWhatsAppStatus(context, state.customer)
+                        val whatsAppButtonText = when (whatsAppStatus) {
+                            SharingUtils.WhatsAppStatus.APP_AVAILABLE -> "Send WhatsApp Reminder"
+                            SharingUtils.WhatsAppStatus.WEB_ONLY -> "Send WhatsApp Reminder (Web)"
+                            SharingUtils.WhatsAppStatus.NO_PHONE -> "No Phone Number"
+                            SharingUtils.WhatsAppStatus.INVALID_PHONE -> "Invalid Phone Number"
+                        }
+                        
                         ActionButtons(
                             invoiceStatus = invoice.status,
                             onAddPayment = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddPayment)) },
                             onAddNote = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.AddNote)) },
-                            onPostpone = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) }
+                            onPostpone = { viewModel.sendAction(InvoiceDetailAction.ShowDialog(ActiveDialog.Postpone)) },
+                            onSendWhatsAppReminder = { viewModel.sendAction(InvoiceDetailAction.SendWhatsAppReminder) },
+                            canSendWhatsApp = canSendWhatsApp,
+                            whatsAppButtonText = whatsAppButtonText
                         )
                     }
                     item { InvoiceImageCard(imageUrl = state.imageUrl) }
@@ -352,7 +386,15 @@ private fun PaymentSummaryCard(invoice: Invoice) {
     }
 }
 @Composable
-private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit, onAddNote: () -> Unit, onPostpone: () -> Unit) {
+private fun ActionButtons(
+    invoiceStatus: InvoiceStatus, 
+    onAddPayment: () -> Unit, 
+    onAddNote: () -> Unit, 
+    onPostpone: () -> Unit,
+    onSendWhatsAppReminder: () -> Unit,
+    canSendWhatsApp: Boolean,
+    whatsAppButtonText: String
+) {
     PanelCard {
         Column(
             modifier = Modifier
@@ -371,6 +413,21 @@ private fun ActionButtons(invoiceStatus: InvoiceStatus, onAddPayment: () -> Unit
                     onClick = onAddPayment
                 )
             }
+            
+            // WhatsApp Payment Reminder Button
+            if (invoiceStatus != InvoiceStatus.PAID) {
+                ActionButton(
+                    text = whatsAppButtonText,
+                    icon = Icons.AutoMirrored.Filled.Message,
+                    onClick = {
+                        println("DEBUG: WhatsApp button clicked in action buttons")
+                        onSendWhatsAppReminder()
+                    },
+                    enabled = canSendWhatsApp,
+                    isTonal = true
+                )
+            }
+            
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ActionButton(
                     text = "Add Note",

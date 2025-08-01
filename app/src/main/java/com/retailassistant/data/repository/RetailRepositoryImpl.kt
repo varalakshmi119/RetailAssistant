@@ -14,6 +14,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -148,6 +151,23 @@ class RetailRepositoryImpl(
         }.fold(
             onSuccess = { Result.success(it) },
             onFailure = { Result.failure(mapException(it, "Could not get image URL.")) }
+        )
+    }
+    
+    override suspend fun downloadImageBytes(url: String): Result<ByteArray> = withContext(ioDispatcher) {
+        runCatching {
+            NetworkUtils.retryWithBackoff {
+                // Use Ktor client to download the image bytes from the signed URL
+                val client = HttpClient()
+                try {
+                    client.get(url).body<ByteArray>()
+                } finally {
+                    client.close()
+                }
+            }
+        }.fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { Result.failure(mapException(it, "Could not download image.")) }
         )
     }
     override suspend fun syncAllUserData(userId: String): Result<Unit> = withContext(ioDispatcher) {

@@ -94,7 +94,8 @@ fun ActionButton(
     icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    isTonal: Boolean = false
+    isTonal: Boolean = false,
+    enabled: Boolean = true
 ) {
     // DESIGN: A versatile action button. The primary style is filled for emphasis,
     // while the tonal style is for secondary actions.
@@ -114,7 +115,8 @@ fun ActionButton(
         modifier = modifier.height(52.dp),
         shape = MaterialTheme.shapes.medium,
         colors = colors,
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        enabled = enabled
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

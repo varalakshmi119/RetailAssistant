@@ -35,6 +35,7 @@ interface RetailRepository {
     suspend fun deleteCustomer(customerId: String): Result<Unit>
     // --- UTILITY & SYNC ---
     suspend fun getPublicUrl(path: String): Result<String>
+    suspend fun downloadImageBytes(url: String): Result<ByteArray>
     suspend fun syncAllUserData(userId: String): Result<Unit>
     suspend fun signOut(userId: String): Result<Unit>
 }
