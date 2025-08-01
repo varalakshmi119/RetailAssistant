@@ -13,6 +13,7 @@ import java.io.FileOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import androidx.core.net.toUri
 
 /**
  * Utility for sending payment reminders via WhatsApp with invoice images
@@ -184,7 +185,7 @@ object SharingUtils {
                 try {
                     // Method 2: Open chat first, then share image
                     val chatIntent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("https://wa.me/$phoneNumber")
+                        data = "https://wa.me/$phoneNumber".toUri()
                         setPackage(packageName)
                     }
                     
@@ -231,7 +232,7 @@ object SharingUtils {
         try {
             // Open WhatsApp chat
             val chatUrl = "https://wa.me/$phoneNumber?text=${Uri.encode(message)}"
-            val chatIntent = Intent(Intent.ACTION_VIEW, Uri.parse(chatUrl))
+            val chatIntent = Intent(Intent.ACTION_VIEW, chatUrl.toUri())
             
             val packages = listOf(WHATSAPP_BUSINESS_PACKAGE, WHATSAPP_PACKAGE)
             var opened = false
@@ -249,7 +250,7 @@ object SharingUtils {
             
             if (!opened) {
                 // Try web WhatsApp
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(chatUrl))
+                val webIntent = Intent(Intent.ACTION_VIEW, chatUrl.toUri())
                 if (webIntent.resolveActivity(context.packageManager) != null) {
                     context.startActivity(webIntent)
                     opened = true
@@ -293,7 +294,7 @@ object SharingUtils {
                     if (isPackageInstalled(context, packageName)) {
                         try {
                             val intent = Intent(Intent.ACTION_VIEW).apply {
-                                data = Uri.parse(chatUrl)
+                                data = chatUrl.toUri()
                                 setPackage(packageName)
                             }
                             
@@ -310,7 +311,7 @@ object SharingUtils {
             }
             
             // Fallback to web
-            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(chatUrl))
+            val webIntent = Intent(Intent.ACTION_VIEW, chatUrl.toUri())
             if (webIntent.resolveActivity(context.packageManager) != null) {
                 context.startActivity(webIntent)
                 onSuccess()
