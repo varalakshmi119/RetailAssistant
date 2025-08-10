@@ -211,7 +211,7 @@ private fun ImageSelectionSection(
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color.White)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
             }
         }
         if (imageUri != null && !isAiExtracting) {
@@ -222,7 +222,7 @@ private fun ImageSelectionSection(
                     .padding(8.dp),
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
-                    contentColor = Color.White
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 )
             ) {
                 Icon(Icons.Default.Clear, "Clear Image")

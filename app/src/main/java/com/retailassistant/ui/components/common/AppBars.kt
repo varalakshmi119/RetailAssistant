@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,10 +17,11 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -27,6 +29,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.retailassistant.ui.navigation.bottomNavItems
+
 @Composable
 fun AppBottomBar(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -38,9 +41,10 @@ fun AppBottomBar(navController: NavHostController) {
         exit = slideOutVertically(animationSpec = tween(300)) { it } + fadeOut(tween(300))
     ) {
         NavigationBar(
-            // DESIGN: Removed tonal elevation for a flatter, more modern look that blends with the scaffold.
+            // DESIGN: Applied subtle gradient for the bottom bar to replace solid color.
+            containerColor = Color.Transparent,
+            modifier = Modifier.background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)))),
             tonalElevation = 0.dp,
-            containerColor = MaterialTheme.colorScheme.surface,
         ) {
             bottomNavItems.forEach { item ->
                 val isSelected = currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
@@ -79,10 +83,11 @@ fun CenteredTopAppBar(
         title = { Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleLarge) },
         navigationIcon = navigationIcon,
         actions = actions,
-        // DESIGN: Top app bar blends with the background for a more seamless UI.
+        // DESIGN: Applied subtle gradient for top app bar.
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
-        )
+            containerColor = Color.Transparent,
+            scrolledContainerColor = Color.Transparent,
+        ),
+        modifier = Modifier.background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))))
     )
 }

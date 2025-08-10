@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RetailAssistant Web</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/env.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">🛍️</div>
+          <div>
+            <h1>RetailAssistant</h1>
+            <div class="tagline">Lightweight invoicing & reminders</div>
+          </div>
+        </div>
+
+        <div id="user-controls" class="hidden controls">
+          <div class="user-bubble" title="Signed in user">
+            <span id="user-email"></span>
+          </div>
+          <button id="sign-out" class="btn ghost">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="auth-section" class="card auth-card">
+        <div class="auth-grid">
+          <div class="auth-illustration" aria-hidden="true">
+            <div class="illus-circle"></div>
+          </div>
+
+          <div>
+            <h2>Log in</h2>
+            <form id="login-form">
+              <label>
+                Email
+                <input id="email" name="email" type="email" required />
+              </label>
+              <label>
+                Password
+                <input id="password" name="password" type="password" required />
+              </label>
+              <div class="row">
+                <button class="btn primary" type="submit">Log in</button>
+                <button id="sign-up" class="btn" type="button">Sign up</button>
+              </div>
+              <p id="auth-error" class="error"></p>
+            </form>
+            <p id="config-warning" class="warning hidden">
+              Missing Supabase config. Set <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboard" class="hidden dashboard-grid">
+        <div class="grid grid-3">
+          <div class="card">
+            <h2>Customers</h2>
+            <div id="customers-list" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h2>Invoices</h2>
+            <div id="invoices-list" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h2>WhatsApp Reminders</h2>
+            <div class="wa-status">
+              <span id="wa-status-dot" class="dot"></span>
+              <span id="wa-status-text">Checking..</span>
+            </div>
+            <div class="row wrap">
+              <button id="wa-start" class="btn">Start / Show QR</button>
+              <button id="wa-send" class="btn primary">Send due reminders</button>
+            </div>
+            <p class="muted small">Uses Baileys WhatsApp Web API.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content card">
+        <button id="modal-close" class="btn close" aria-label="Close">✕</button>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <footer class="app-footer">© RetailAssistant</footer>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

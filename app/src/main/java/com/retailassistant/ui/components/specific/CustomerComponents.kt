@@ -46,8 +46,6 @@ fun CustomerCard(
     onEmailClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // DESIGN: Redesigned CustomerCard using the new PanelCard for a cleaner look.
-    // Enhanced visual hierarchy and spacing for better readability.
     PanelCard(modifier = modifier.fillMaxWidth(), onClick = onClick) {
         Column {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -83,7 +81,8 @@ fun CustomerCard(
                     if (stats.overdueCount > 0) {
                         Surface(
                             shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                            color = Color.Transparent,
+                            modifier = Modifier.background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f))))
                         ) {
                             Text(
                                 "${stats.overdueCount} Overdue",

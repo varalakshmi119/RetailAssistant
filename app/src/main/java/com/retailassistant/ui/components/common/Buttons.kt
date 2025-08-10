@@ -101,18 +101,27 @@ fun ActionButton(
     // while the tonal style is for secondary actions.
     val colors = if (isTonal) {
         ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
     } else {
         ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onPrimary
         )
     }
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier
+            .height(52.dp)
+            .background(
+                brush = if (isTonal) {
+                    Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)))
+                } else {
+                    Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)))
+                },
+                shape = MaterialTheme.shapes.medium
+            ),
         shape = MaterialTheme.shapes.medium,
         colors = colors,
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),

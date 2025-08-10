@@ -334,18 +334,18 @@ private fun StatCard(
                 imageVector = icon,
                 contentDescription = label,
                 modifier = Modifier.size(32.dp),
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onPrimary
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.9f)
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
             )
             AnimatedCounter(
                 targetValue = value,
                 formatter = formatter,
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onPrimary
             )
         }
     }
