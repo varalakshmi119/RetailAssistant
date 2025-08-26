@@ -1,5 +1,3 @@
-Of course. Here is the professionally formatted project description.
-
 -----
 
 ### **Retail Assistant - Invoicing & Customer Management App**
